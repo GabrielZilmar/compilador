@@ -10,7 +10,7 @@ string tokenLido;
 void procedimentoS();
 void procedimentoD();
 void procedimentoT();
-void procedimentoL();
+void procedimentoN();
 void procedimentoM();
 void procedimentoK();
 void procedimentoC();
@@ -296,19 +296,23 @@ string analisadorLexico(){
 }
 
 
-/* Grámatica
+/* Gramatica
 *
 * S-> {D} main '{'{C}'}' eof
 *
-* Declaracoes
-* D->  L | K
+* Declaracoes (D)
+* D-> TN | K 
 *
-* T-> char | string | int | boolean
-* L-> idM{,idM}
+* Tipo (T)
+* T-> char | string | int | boolean 
+* Nome de declaracao (N)
+* N-> idM{,idM}
+* Modo de declaracao (M)
 * M-> [= const] | '['const']'
+* Declaracao de constantes (K)
 * K-> final id = const
 *
-* Comandos
+* Comandos (C)
 * C-> id['['E']'] := E;
 * C-> for'('A;E;A')' B
 * C-> if'('E')' then B [else B]
@@ -316,11 +320,13 @@ string analisadorLexico(){
 * C-> readln'('V')';
 * C-> write'('{E}')'; | writeln'('{E}')';
 * 
+* Blocos de comandos(A e B)
 * A-> [C{,C}]
 * B-> C | '{'{C}'}'
+* Valor (V)
 * V-> id['['E']']
 * 
-* Expressoes
+* Expressoes (E, F, G e H)
 * E-> F [ (=|<>|<|>|<=|>=) F]
 * F-> [+|-] G {(+|-|or) G} 
 * G-> H {(*|and|/|%) H}
@@ -343,6 +349,7 @@ void casaToken(string tokenEsp){
     }
 }
 
+//S-> {D} main '{'{C}'}' eof
 void procedimentoS(){
     while(tokenLido == "char" || tokenLido == "int" || tokenLido == "string" || tokenLido == "boolean" || tokenLido == "final"){
         procedimentoD();
@@ -357,10 +364,11 @@ void procedimentoS(){
 }
 
 //Declaracoes
+//D-> TN | K 
 void procedimentoD(){
     if(tokenLido == "char" || tokenLido == "int" || tokenLido == "string" || tokenLido == "boolean"){
         procedimentoT();
-        procedimentoL();
+        procedimentoN();
     }
     else{
         if(tokenLido == "final"){
@@ -371,6 +379,8 @@ void procedimentoD(){
         }
     }
 }
+
+//T-> char | string | int | boolean
 void procedimentoT(){
     if(tokenLido == "char"){
             casaToken("char");
@@ -395,8 +405,8 @@ void procedimentoT(){
     }
 }
 
-
-void procedimentoL(){
+//N-> idM{,idM}
+void procedimentoN(){
     casaToken("id");
     procedimentoM();
     while(tokenLido == ","){
@@ -406,6 +416,7 @@ void procedimentoL(){
     }
 }
 
+//M-> [= const] | '['const']'
 void procedimentoM(){
     if(tokenLido == "["){
         casaToken("[");
@@ -420,6 +431,7 @@ void procedimentoM(){
     }
 }
 
+//K-> final id = const
 void procedimentoK(){
     casaToken("final");
     casaToken("id");
@@ -428,6 +440,12 @@ void procedimentoK(){
 }
 
 //Comandos
+//C-> id['['E']'] := E;
+//C-> for'('A;E;A')' B
+//C-> if'('E')' then B [else B]
+//C-> ;
+//C-> readln'('V')';
+//C-> write'('{E}')'; | writeln'('{E}')';
 void procedimentoC(){
     if(tokenLido == "id"){
         casaToken("id");
@@ -503,6 +521,8 @@ void procedimentoC(){
     }
 }
 
+
+//A-> [C{,C}]
 void procedimentoA(){
     if(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
         procedimentoC();
@@ -513,6 +533,7 @@ void procedimentoA(){
     }
 }
 
+//* B-> C | '{'{C}'}'
 void procedimentoB(){
     if(tokenLido == "{"){
         casaToken("{");
@@ -531,6 +552,7 @@ void procedimentoB(){
     }
 }
 
+//V-> id['['E']']
 void procedimentoV(){
     casaToken("id");
     if(tokenLido == "["){
@@ -540,7 +562,8 @@ void procedimentoV(){
     }
 }
 
-//expressoes
+//Expressoes
+//E-> F [ (=|<>|<|>|<=|>=) F]
 void procedimentoE(){
     procedimentoF();
     if(tokenLido == "=" || tokenLido == "<>" || tokenLido == "<" || tokenLido == ">" ||  tokenLido == "<=" || tokenLido == ">="){
@@ -549,6 +572,7 @@ void procedimentoE(){
     }
 }
 
+//* F-> [+|-] G {(+|-|or) G} 
 void procedimentoF(){
     if(tokenLido == "+" || tokenLido == "-"){
         casaToken(tokenLido);
@@ -560,6 +584,7 @@ void procedimentoF(){
     }
 }
 
+//G-> H {(*|and|/|%) H}
 void procedimentoG(){
     procedimentoH();
     while(tokenLido == "*" || tokenLido == "and" || tokenLido == "/" || tokenLido == "%"){
@@ -568,6 +593,7 @@ void procedimentoG(){
     }
 }
 
+//H-> id ['['E']'] | const | not H | '('E')'
 void procedimentoH(){
     if(tokenLido == "id"){
         casaToken("id");

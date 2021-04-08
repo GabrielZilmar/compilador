@@ -197,6 +197,7 @@ string analisadorLexico(){
                 case 9:
                     if(c == '='){
                         s = 3;
+                        tokenLido = ":=";
                         lexema += c;
                     }
                     else{

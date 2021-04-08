@@ -6,6 +6,21 @@
 using namespace std;
 
 string tokenLido;
+void procedimentoS();
+void procedimentoD();
+void procedimentoT();
+void procedimentoL();
+void procedimentoM();
+void procedimentoK();
+void procedimentoC();
+void procedimentoA();
+void procedimentoB();
+void procedimentoV();
+void procedimentoE();
+void procedimentoF();
+void procedimentoG();
+void procedimentoH();
+
 
 string analisadorLexico(){
     int s = 0;
@@ -265,14 +280,11 @@ string analisadorLexico(){
 
 void analisadorSintatico(){
     tokenLido = analisadorLexico();
-    if(tokenLido == null){
-        tokenLido = ""; //EOF
-    }
     procedimentoS();
 }
 
 void casaToken(string tokenEsp){
-    string token = null;
+    string token;
     if(tokenEsp == tokenLido){
         token = tokenLido;
         tokenLido = analisadorLexico();
@@ -286,12 +298,12 @@ void procedimentoS(){
     while(tokenLido == "char" || tokenLido == "int" || tokenLido == "string" || tokenLido == "boolean" || tokenLido == "final"){
         procedimentoD();
     }
-    casaToken('main');
-    casaToken('{');
+    casaToken("main");
+    casaToken("{");
     while(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
-        ProcedimentoC();
+        procedimentoC();
     }
-    casaToken('}');
+    casaToken("}");
 
 }
 
@@ -313,27 +325,27 @@ void procedimentoD(){
 void procedimentoT(){
     if(tokenLido == "char"){
             casaToken("char");
+    }
+    else{
+        if(tokenLido == "int"){
+            casaToken("int");
         }
         else{
-            if(tokenLido == "int"){
-                casaToken("int");
+            if(tokenLido == "string"){
+                casaToken("string");
             }
             else{
-                if(tokenLido == "string"){
-                    casaToken("string");
+                if(tokenLido == "boolean"){
+                    casaToken("boolean");
                 }
                 else{
-                    if(tokenLido == "boolean"){
-                        casaToken("boolean");
-                    }
-                    else{
-                        //erro
-                    }
+                    //erro
                 }
             }
         }
     }
 }
+
 
 void procedimentoL(){
     casaToken("id");
@@ -429,7 +441,7 @@ void procedimentoC(){
                         }
                         else{
                             if(tokenLido == ";"){
-                                casaToke(";");
+                                casaToken(";");
                             }
                             else{
                                 //erro
@@ -470,7 +482,7 @@ void procedimentoB(){
     }
 }
 
-procedimentoV(){
+void procedimentoV(){
     casaToken("id");
     if(tokenLido == "["){
         casaToken("[");
@@ -480,15 +492,15 @@ procedimentoV(){
 }
 
 //expressoes
-procedimentoE(){
+void procedimentoE(){
     procedimentoF();
-    if(tokenLido == "=" || tokenLido == "<>" || tokenLido == "<" tokenLido == ">" ||  tokenLido == "<=" || tokenLido == ">="){
+    if(tokenLido == "=" || tokenLido == "<>" || tokenLido == "<" || tokenLido == ">" ||  tokenLido == "<=" || tokenLido == ">="){
         casaToken(tokenLido); //tem que ver isso aqui no futuro
         procedimentoF();
     }
 }
 
-procedimentoF(){
+void procedimentoF(){
     if(tokenLido == "+" || tokenLido == "-"){
         casaToken(tokenLido);
     }
@@ -499,7 +511,7 @@ procedimentoF(){
     }
 }
 
-procedimentoG(){
+void procedimentoG(){
     procedimentoH();
     while(tokenLido == "*" || tokenLido == "and" || tokenLido == "/" || tokenLido == "%"){
         casaToken(tokenLido);
@@ -507,7 +519,7 @@ procedimentoG(){
     }
 }
 
-procedimentoH(){
+void procedimentoH(){
     if(tokenLido == "id"){
         casaToken("id");
         if(tokenLido == "["){
@@ -526,7 +538,7 @@ procedimentoH(){
                 procedimentoH();
             }
             else{
-                if(tokenLido("("){
+                if(tokenLido == "("){
                     casaToken("(");
                     procedimentoE();
                     casaToken(")");

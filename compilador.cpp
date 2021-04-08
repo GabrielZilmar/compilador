@@ -119,6 +119,7 @@ string analisadorLexico(){
                                             else{
                                                 if(c == '-' || c == '+' || c == '*' || c == '%' || c == '=' || c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == ',' || c == ';'){
                                                     s = 8;
+                                                    tokenLido = c;
                                                     lexema += c;
                                                 }
                                                 else{

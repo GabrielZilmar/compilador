@@ -6,31 +6,16 @@
 
 using namespace std;
 
-string tokenLido;
-void procedimentoS();
-void procedimentoD();
-void procedimentoT();
-void procedimentoN();
-void procedimentoM();
-void procedimentoK();
-void procedimentoC();
-void procedimentoA();
-void procedimentoB();
-void procedimentoV();
-void procedimentoE();
-void procedimentoF();
-void procedimentoG();
-void procedimentoH();
-
-
 class TabelaSimbolos {
     unordered_map<string, int> hash;
+    int nextPos;
     
     public:
         TabelaSimbolos();
+        void addLexema();
 };
 
-TabelaSimbolos::TabelaSimbolos() {
+TabelaSimbolos::TabelaSimbolos(string lex) {
     hash["final"] = 1;
     hash["int"] = 2;
     hash["char"] = 3;
@@ -69,7 +54,23 @@ TabelaSimbolos::TabelaSimbolos() {
     hash["readln"] = 36;
     hash["%"] = 37;
     hash["main"] = 38;
+    hash["eof"] = 39;
+    nextPos = 40;
 }
+
+TabelaSimbolos::addLexema(string lex){
+    if(hash[lex] == 0){
+        hash[lex] = nextPos;
+        nextPos++;
+    }
+}
+
+
+//atributos globais
+string tokenLido;
+TabelaSimbolos ts;
+int linha = 0; //linha atual do programa
+enum status = {EXECUTANDO,ERRO,COMPILADO};
 
 string analisadorLexico(){
     int s = 0;
@@ -126,8 +127,13 @@ string analisadorLexico(){
                                                         lexema += c;
                                                     }
                                                     else{
-                                                        if(!(c == ' ' || c == '\n')){
-                                                            //erro
+                                                        if(c == '\n'){
+                                                            linha++;
+                                                        }
+                                                        else{
+                                                            if(!(c == ' ')){
+                                                                //erro
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -146,6 +152,8 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
+                        tokenLido = "id";
+                        ts.addLexema(lexema); //adiciona o identificador na tabela de simbolos
                         cin.unget();
                     }
                     break;
@@ -155,16 +163,19 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
+                        tokenLido = "/";
                         cin.unget();
                     }
                     break;
                 case 4:
                     if(c == '>' || c == '='){
                         s = 11;
+                        tokenLido = "<"+c;
                         lexema += c;
                     }
                     else{
                         s = 6;
+                        tokenLido = "<";
                         cin.unget();
                     }
                     break;
@@ -189,21 +200,23 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
+                        tokenLido = ":";
                         cin.unget();
                     }
                     break;
                 case 10:
                     if(c == '='){
                         s = 11;
+                        tokenLido = ">=";
                         lexema += c;
                     }
                     else{
                         s = 6;
+                        tokenLido = ">";
                         cin.unget();
                     }
                     break;
                 case 12:
-
                     if(c >= 48 && c <= 57){
                         s = 16;
                         lexema += c;
@@ -215,6 +228,7 @@ string analisadorLexico(){
                         }
                         else{
                             s = 6;
+                            tokenLido = "int";
                             cin.unget();
                         }
                     }
@@ -226,6 +240,7 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
+                        tokenLido = "int";
                         cin.unget();
                     }
                     break;
@@ -241,6 +256,7 @@ string analisadorLexico(){
                 case 15:
                     if(c == 'h'){
                         s = 18;
+                        tokenLido = "char";
                         lexema += c;
                     }
                     else{
@@ -248,13 +264,20 @@ string analisadorLexico(){
                     }
                     break;
                 case 16:
-                    if((c >= 48 && c <= 57) || (c >= 65 && c <= 70)){
+                    if(c >= 48 && c <= 57){
                         s = 17;
                         lexema += c;
                     }
                     else{
-                        s = 6;
-                        cin.unget();
+                        if(c >= 65 && c <= 70){
+                            s = 21;
+                            lexema += c;
+                        }
+                        else{
+                            s = 6;
+                            tokenLido = "int";
+                            cin.unget();
+                        }
                     }
                     break;
                 case 17:
@@ -265,10 +288,12 @@ string analisadorLexico(){
                     else{
                         if(c == 'h'){
                             s = 18;
+                            tokenLido = "char";
                             lexema += c;
                         }
                         else{
                             s = 6;
+                            tokenLido = "int";
                             cin.unget();
                         }
                     }
@@ -280,10 +305,21 @@ string analisadorLexico(){
                 case 20:
                     if(c == '\''){
                         s = 8;
+                        tokenLido = "char";
                         lexema += c;
                     }
                     else{
                         //erro?
+                    }
+                    break;
+                case 21:
+                    if(c == 'h'){
+                        s = 18;
+                        tokenLido = "char";
+                        cin.unget();
+                    }
+                    else{
+                        //erro
                     }
             }
         }
@@ -348,6 +384,21 @@ void casaToken(string tokenEsp){
         //erro
     }
 }
+
+void procedimentoS();
+void procedimentoD();
+void procedimentoT();
+void procedimentoN();
+void procedimentoM();
+void procedimentoK();
+void procedimentoC();
+void procedimentoA();
+void procedimentoB();
+void procedimentoV();
+void procedimentoE();
+void procedimentoF();
+void procedimentoG();
+void procedimentoH();
 
 //S-> {D} main '{'{C}'}' eof
 void procedimentoS(){

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 using namespace std;
 
@@ -21,6 +22,54 @@ void procedimentoF();
 void procedimentoG();
 void procedimentoH();
 
+
+class TabelaSimbolos {
+    unordered_map<string, int> hash;
+    
+    public:
+        TabelaSimbolos();
+};
+
+TabelaSimbolos::TabelaSimbolos() {
+    hash["final"] = 1;
+    hash["int"] = 2;
+    hash["char"] = 3;
+    hash["string"] = 4;
+    hash["boolean"] = 5;
+    hash["for"] = 6;
+    hash["if"] = 7;
+    hash["else"] = 8;
+    hash["then"] = 9;
+    hash["TRUE"] = 10;
+    hash["FALSE"] = 11;
+    hash["end"] = 12;
+    hash["or"] = 13;
+    hash["not"] = 14;
+    hash[":="] = 15;
+    hash["="] = 16;
+    hash["("] = 17;
+    hash[")"] = 18;
+    hash["{"] = 19;
+    hash["}"] = 20;
+    hash["["] = 21;
+    hash["]"] = 22;
+    hash["<"] = 23;
+    hash[">"] = 24;
+    hash["<>"] = 25;
+    hash[">="] = 26;
+    hash["<="] = 27;
+    hash[","] = 28;
+    hash["+"] = 29;
+    hash["-"] = 30;
+    hash["*"] = 31;
+    hash["/"] = 32;
+    hash[";"] = 33;
+    hash["write"] = 34;
+    hash["writeln"] = 35;
+    hash["readln"] = 36;
+    hash["%"] = 37;
+    hash["main"] = 38;
+}
 
 string analisadorLexico(){
     int s = 0;

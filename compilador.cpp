@@ -7,78 +7,100 @@
 using namespace std;
 
 class TabelaSimbolos {
-    unordered_map<string, int> hash;
     int nextPos;
     
     public:
+        unordered_map<string, int> hash;
         TabelaSimbolos();
-        void addLexema();
+        void addLexema(string);
+
 };
 
-TabelaSimbolos::TabelaSimbolos(string lex) {
-    hash["final"] = 1;
-    hash["int"] = 2;
-    hash["char"] = 3;
-    hash["string"] = 4;
-    hash["boolean"] = 5;
-    hash["for"] = 6;
-    hash["if"] = 7;
-    hash["else"] = 8;
-    hash["then"] = 9;
-    hash["TRUE"] = 10;
-    hash["FALSE"] = 11;
-    hash["end"] = 12;
-    hash["or"] = 13;
-    hash["not"] = 14;
-    hash[":="] = 15;
-    hash["="] = 16;
-    hash["("] = 17;
-    hash[")"] = 18;
-    hash["{"] = 19;
-    hash["}"] = 20;
-    hash["["] = 21;
-    hash["]"] = 22;
-    hash["<"] = 23;
-    hash[">"] = 24;
-    hash["<>"] = 25;
-    hash[">="] = 26;
-    hash["<="] = 27;
-    hash[","] = 28;
-    hash["+"] = 29;
-    hash["-"] = 30;
-    hash["*"] = 31;
-    hash["/"] = 32;
-    hash[";"] = 33;
-    hash["write"] = 34;
-    hash["writeln"] = 35;
-    hash["readln"] = 36;
-    hash["%"] = 37;
-    hash["main"] = 38;
-    hash["eof"] = 39;
-    nextPos = 40;
-}
-
-TabelaSimbolos::addLexema(string lex){
-    if(hash[lex] == 0){
-        hash[lex] = nextPos;
-        nextPos++;
+TabelaSimbolos::TabelaSimbolos() {
+        hash["final"] = 1;
+        hash["int"] = 2;
+        hash["char"] = 3;
+        hash["string"] = 4;
+        hash["boolean"] = 5;
+        hash["for"] = 6;
+        hash["if"] = 7;
+        hash["else"] = 8;
+        hash["then"] = 9;
+        hash["TRUE"] = 10;
+        hash["FALSE"] = 11;
+        hash["end"] = 12;
+        hash["or"] = 13;
+        hash["not"] = 14;
+        hash[":="] = 15;
+        hash["="] = 16;
+        hash["("] = 17;
+        hash[")"] = 18;
+        hash["{"] = 19;
+        hash["}"] = 20;
+        hash["["] = 21;
+        hash["]"] = 22;
+        hash["<"] = 23;
+        hash[">"] = 24;
+        hash["<>"] = 25;
+        hash[">="] = 26;
+        hash["<="] = 27;
+        hash[","] = 28;
+        hash["+"] = 29;
+        hash["-"] = 30;
+        hash["*"] = 31;
+        hash["/"] = 32;
+        hash[";"] = 33;
+        hash["write"] = 34;
+        hash["writeln"] = 35;
+        hash["readln"] = 36;
+        hash["%"] = 37;
+        hash["main"] = 38;
+        hash["eof"] = 39;
+        nextPos = 40;
     }
-}
+
+    void TabelaSimbolos::addLexema(string lex){
+        if(hash[lex] == 0){
+            hash[lex] = nextPos;
+            nextPos++;
+        }
+    }
 
 
 //atributos globais
 string tokenLido;
 TabelaSimbolos ts;
-int linha = 0; //linha atual do programa
-enum status = {EXECUTANDO,ERRO,COMPILADO};
+int linha = 1; //linha atual do programa
+enum Status {EXECUTANDO, ERRO, COMPILADO};
+Status stat;
+enum Erro {EOF_INESPERADO, LEXEMA_INESPERADO, TOKEN_INESPERADO, CARACTERE_INVALIDO};
+
+void mensagemErro(Erro erro, string lex){
+    stat = ERRO;
+    cout << linha << "\n";
+    switch(erro){
+        case EOF_INESPERADO:
+            cout << "fim de arquivo nao esperado.";
+            break;
+        case LEXEMA_INESPERADO: 
+            cout << "lexema nao identificado [" << lex << "].";
+            break;
+        case TOKEN_INESPERADO:
+            cout << "token nao esperado [" << lex << "].";
+            break;
+        case CARACTERE_INVALIDO:
+            cout << "caractere invalido.";
+            break;
+    }
+    exit(0);
+}
 
 string analisadorLexico(){
     int s = 0;
     char c;
-    string lexema;
+    string lexema = "";
     while(s != 3 && s != 6 && s != 8 && s != 11 && s != 18){
         if(!cin.eof()){
-            lexema = "";
             cin.get(c);
             switch(s){
                 case 0:
@@ -128,14 +150,21 @@ string analisadorLexico(){
                                                         lexema += c;
                                                     }
                                                     else{
-                                                        if(c == '\n'){
-                                                            linha++;
+                                                        if(c == '\"'){
+                                                            s = 22;
+                                                            lexema += c;
                                                         }
                                                         else{
-                                                            if(!(c == ' ')){
-                                                                //erro
+                                                            if(c == '\n'){
+                                                                linha++;
+                                                            }
+                                                            else{
+                                                                if(!(c == ' ')){
+                                                                    mensagemErro(CARACTERE_INVALIDO, "");
+                                                                }
                                                             }
                                                         }
+                                                        
                                                     }
                                                 }
                                             }
@@ -153,8 +182,14 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
-                        tokenLido = "id";
+                        if(ts.hash[lexema] > 0 && ts.hash[lexema] < 40){ //caso o lexema seja uma palavra reservada
+                            tokenLido = lexema;
+                        }
+                        else{
+                            tokenLido = "id";
+                        }
                         ts.addLexema(lexema); //adiciona o identificador na tabela de simbolos
+
                         cin.unget();
                     }
                     break;
@@ -164,14 +199,19 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
-                        tokenLido = "/";
+                        tokenLido = '/';
                         cin.unget();
                     }
                     break;
                 case 4:
                     if(c == '>' || c == '='){
                         s = 11;
-                        tokenLido = "<"+c;
+                        if(c == '>'){
+                            tokenLido = "<>";
+                        }
+                        else{
+                            tokenLido = "<=";
+                        }
                         lexema += c;
                     }
                     else{
@@ -230,7 +270,7 @@ string analisadorLexico(){
                         }
                         else{
                             s = 6;
-                            tokenLido = "int";
+                            tokenLido = "const";
                             cin.unget();
                         }
                     }
@@ -242,7 +282,7 @@ string analisadorLexico(){
                     }
                     else{
                         s = 6;
-                        tokenLido = "int";
+                        tokenLido = "const";
                         cin.unget();
                     }
                     break;
@@ -252,7 +292,7 @@ string analisadorLexico(){
                         lexema += c;
                     }
                     else{
-                        //erro
+                        mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
                     break;
                 case 15:
@@ -262,7 +302,7 @@ string analisadorLexico(){
                         lexema += c;
                     }
                     else{
-                        //erro
+                        mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
                     break;
                 case 16:
@@ -277,7 +317,7 @@ string analisadorLexico(){
                         }
                         else{
                             s = 6;
-                            tokenLido = "int";
+                            tokenLido = "const";
                             cin.unget();
                         }
                     }
@@ -295,7 +335,7 @@ string analisadorLexico(){
                         }
                         else{
                             s = 6;
-                            tokenLido = "int";
+                            tokenLido = "const";
                             cin.unget();
                         }
                     }
@@ -311,7 +351,7 @@ string analisadorLexico(){
                         lexema += c;
                     }
                     else{
-                        //erro?
+                        mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
                     break;
                 case 21:
@@ -321,15 +361,30 @@ string analisadorLexico(){
                         cin.unget();
                     }
                     else{
-                        //erro
+                        mensagemErro(LEXEMA_INESPERADO, lexema);
+                    }
+                    break;
+                case 22: 
+                    if(c != '\n' && c != '$'){
+                        if(c == '\"'){
+                            s = 6;
+                            tokenLido = "const";
+                            lexema += c; 
+                        }
+                        else{
+                            lexema += c;
+                        }
+                    }   
+                    else{
+                        mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
             }
         }
         else{
             s = 8;
-            lexema = "";
         }
     }
+    cout << lexema << " ";
     return lexema;
 }
 
@@ -344,22 +399,23 @@ string analisadorLexico(){
 * Tipo (T)
 * T-> char | string | int | boolean 
 * Nome de declaracao (N)
-* N-> idM{,idM}
+* N-> idM{,idM};
 * Modo de declaracao (M)
-* M-> [= const] | '['const']'
+* M-> [:= const] | '['const']'
 * Declaracao de constantes (K)
 * K-> final id = const
 *
 * Comandos (C)
-* C-> id['['E']'] := E;
+* R-> id['['E']'] := E
 * C-> for'('A;E;A')' B
 * C-> if'('E')' then B [else B]
 * C-> ;
 * C-> readln'('V')';
-* C-> write'('{E}')'; | writeln'('{E}')';
+* C-> write'('E{,E}')'; | writeln'('E{,E}')';
+  C-> R;
 * 
 * Blocos de comandos(A e B)
-* A-> [C{,C}]
+* A-> [R{,R}]
 * B-> C | '{'{C}'}'
 * Valor (V)
 * V-> id['['E']']
@@ -370,22 +426,6 @@ string analisadorLexico(){
 * G-> H {(*|and|/|%) H}
 * H-> id ['['E']'] | const | not H | '('E')'
 */
-
-void analisadorSintatico(){
-    tokenLido = analisadorLexico();
-    procedimentoS();
-}
-
-void casaToken(string tokenEsp){
-    string token;
-    if(tokenEsp == tokenLido){
-        token = tokenLido;
-        tokenLido = analisadorLexico();
-    }
-    else{
-        //erro
-    }
-}
 
 void procedimentoS();
 void procedimentoD();
@@ -401,6 +441,23 @@ void procedimentoE();
 void procedimentoF();
 void procedimentoG();
 void procedimentoH();
+
+void analisadorSintatico(){
+    tokenLido = analisadorLexico();
+    procedimentoS();
+}
+
+void casaToken(string tokenEsp){
+    string token;
+    cout << tokenLido << " " << tokenEsp << "\n";
+    if(tokenEsp == tokenLido){
+        token = tokenLido;
+        analisadorLexico();
+    }
+    else{
+        mensagemErro(TOKEN_INESPERADO, tokenLido);
+    }
+}
 
 //S-> {D} main '{'{C}'}' eof
 void procedimentoS(){
@@ -428,7 +485,7 @@ void procedimentoD(){
             procedimentoK();
         }
         else{
-            //erro
+            mensagemErro(TOKEN_INESPERADO, tokenLido);
         }
     }
 }
@@ -451,14 +508,14 @@ void procedimentoT(){
                     casaToken("boolean");
                 }
                 else{
-                    //erro
+                    mensagemErro(TOKEN_INESPERADO, tokenLido);
                 }
             }
         }
     }
 }
 
-//N-> idM{,idM}
+//N-> idM{,idM};
 void procedimentoN(){
     casaToken("id");
     procedimentoM();
@@ -467,9 +524,10 @@ void procedimentoN(){
         casaToken("id");
         procedimentoM();
     }
+    casaToken(";");
 }
 
-//M-> [= const] | '['const']'
+//M-> [:= const] | '['const']'
 void procedimentoM(){
     if(tokenLido == "["){
         casaToken("[");
@@ -477,23 +535,24 @@ void procedimentoM(){
         casaToken("]");
     }
     else{
-        if(tokenLido == "="){
-            casaToken("=");
+        if(tokenLido == ":="){
+            casaToken(":=");
             casaToken("const");
         }
     }
 }
 
-//K-> final id = const
+//K-> final id = const;
 void procedimentoK(){
     casaToken("final");
     casaToken("id");
     casaToken("=");
     casaToken("const");
+    casaToken(";");
 }
 
 //Comandos
-//C-> id['['E']'] := E;
+//C-> id['['E']'] := E
 //C-> for'('A;E;A')' B
 //C-> if'('E')' then B [else B]
 //C-> ;
@@ -509,6 +568,7 @@ void procedimentoC(){
         }
         casaToken(":=");
         procedimentoE();
+        casaToken(";");
     }
     else{
         if(tokenLido == "for"){
@@ -548,6 +608,10 @@ void procedimentoC(){
                         casaToken("write");
                         casaToken("(");
                         procedimentoE();
+                        while(tokenLido == ","){
+                            casaToken(",");
+                            procedimentoE();
+                        }
                         casaToken(")");
                         casaToken(";");
                     }
@@ -556,6 +620,10 @@ void procedimentoC(){
                             casaToken("writeln");
                             casaToken("(");
                             procedimentoE();
+                            while(tokenLido == ","){
+                                casaToken(",");
+                                procedimentoE();
+                            }
                             casaToken(")");
                             casaToken(";");
                         }
@@ -564,7 +632,7 @@ void procedimentoC(){
                                 casaToken(";");
                             }
                             else{
-                                //erro
+                                mensagemErro(TOKEN_INESPERADO, tokenLido);
                             }
                         }
                     }
@@ -598,9 +666,10 @@ void procedimentoB(){
     else{
         if(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
             procedimentoC();
+            //casaToken(";");
         }
         else{
-            //erro
+            mensagemErro(TOKEN_INESPERADO, tokenLido);
         }
     }
 }
@@ -677,6 +746,11 @@ void procedimentoH(){
 }
 
 int main(){
+    stat = EXECUTANDO;
     analisadorSintatico();
+    stat = EXECUTANDO;
+    if(!(stat == ERRO)){
+        cout << linha << " linhas compiladas.";
+    }
     return 0;
 }

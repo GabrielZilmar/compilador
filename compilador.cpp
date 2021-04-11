@@ -59,6 +59,7 @@ TabelaSimbolos::TabelaSimbolos() {
         nextPos = 40;
     }
 
+    //Metodo que adiciona um lexema na tabela de simbolos caso ele inda nao exista
     void TabelaSimbolos::addLexema(string lex){
         if(hash[lex] == 0){
             hash[lex] = nextPos;
@@ -69,12 +70,13 @@ TabelaSimbolos::TabelaSimbolos() {
 
 //atributos globais
 string tokenLido;
-TabelaSimbolos ts;
+TabelaSimbolos ts; //tabela de simbolos
 int linha = 1; //linha atual do programa
-enum Status {EXECUTANDO, ERRO, COMPILADO};
-Status stat;
-enum Erro {EOF_INESPERADO, LEXEMA_INESPERADO, TOKEN_INESPERADO, CARACTERE_INVALIDO};
+enum Status {EXECUTANDO, ERRO, COMPILADO}; //status possiveis de execucao
+Status stat; //status de execucao
+enum Erro {EOF_INESPERADO, LEXEMA_INESPERADO, TOKEN_INESPERADO, CARACTERE_INVALIDO}; //codigo do erro
 
+//printa a mensagem de erro na tela e encerra a execucao do compilador
 void mensagemErro(Erro erro, string lex){
     stat = ERRO;
     cout << linha << "\n";
@@ -95,6 +97,11 @@ void mensagemErro(Erro erro, string lex){
     exit(0);
 }
 
+//verifica se o caractere e valido
+bool caractereValido(char c){
+    return ((c>=0 && c<=34) || (c >= 48 && c <= 57) || (c>=37 && c<=45) || c == 47 || (c>=58 &&  c <= 90) || (c>=91 && c<=93) || (c >= 95 && c <= 123) || c == 125);
+}
+
 string analisadorLexico(){
     int s = 0;
     char c;
@@ -102,6 +109,9 @@ string analisadorLexico(){
     while(s != 3 && s != 6 && s != 8 && s != 11 && s != 18){
         if(!cin.eof()){
             cin.get(c);
+            if(!caractereValido(c)){
+                mensagemErro(CARACTERE_INVALIDO,"");
+            }
             switch(s){
                 case 0:
                     if(c >= 65 && c <= 90 || c == '_' || c >= 97 && c <= 122){ //letras ou _
@@ -156,11 +166,13 @@ string analisadorLexico(){
                                                         }
                                                         else{
                                                             if(c == '\n'){
-                                                                linha++;
+                                                                if(!cin.eof()){
+                                                                    linha++;
+                                                                }
                                                             }
                                                             else{
-                                                                if(!(c == ' ')){
-                                                                    mensagemErro(CARACTERE_INVALIDO, "");
+                                                                if(!(c == ' ' || c == '\r')){
+                                                                    mensagemErro(LEXEMA_INESPERADO, lexema+c);
                                                                 }
                                                             }
                                                         }
@@ -189,8 +201,9 @@ string analisadorLexico(){
                             tokenLido = "id";
                         }
                         ts.addLexema(lexema); //adiciona o identificador na tabela de simbolos
-
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 2:
@@ -200,7 +213,9 @@ string analisadorLexico(){
                     else{
                         s = 6;
                         tokenLido = '/';
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 4:
@@ -217,12 +232,19 @@ string analisadorLexico(){
                     else{
                         s = 6;
                         tokenLido = "<";
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 5:
                     if(c == '*'){
                         s = 7;
+                    }
+                    else{
+                        if(c == '\n' && !cin.eof()){
+                            linha++;
+                        }
                     }
                     break;
                 case 7:
@@ -243,7 +265,9 @@ string analisadorLexico(){
                     else{
                         s = 6;
                         tokenLido = ":";
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 10:
@@ -255,7 +279,9 @@ string analisadorLexico(){
                     else{
                         s = 6;
                         tokenLido = ">";
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 12:
@@ -271,7 +297,9 @@ string analisadorLexico(){
                         else{
                             s = 6;
                             tokenLido = "const";
-                            cin.unget();
+                            if(c != '\n'){
+                                cin.unget();
+                            }
                         }
                     }
                     break;
@@ -283,7 +311,9 @@ string analisadorLexico(){
                     else{
                         s = 6;
                         tokenLido = "const";
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     break;
                 case 14:
@@ -318,7 +348,9 @@ string analisadorLexico(){
                         else{
                             s = 6;
                             tokenLido = "const";
-                            cin.unget();
+                            if(c != '\n'){
+                                cin.unget();
+                            }
                         }
                     }
                     break;
@@ -336,7 +368,9 @@ string analisadorLexico(){
                         else{
                             s = 6;
                             tokenLido = "const";
-                            cin.unget();
+                            if(c != '\n'){
+                                cin.unget();
+                            }
                         }
                     }
                     break;
@@ -358,7 +392,9 @@ string analisadorLexico(){
                     if(c == 'h'){
                         s = 18;
                         tokenLido = "char";
-                        cin.unget();
+                        if(c != '\n'){
+                            cin.unget();
+                        }
                     }
                     else{
                         mensagemErro(LEXEMA_INESPERADO, lexema);
@@ -382,9 +418,12 @@ string analisadorLexico(){
         }
         else{
             s = 8;
+            if(stat == EXECUTANDO){
+                mensagemErro(EOF_INESPERADO, "");
+            }
         }
     }
-    cout << lexema << " ";
+    //cout << lexema << " ";
     return lexema;
 }
 
@@ -406,13 +445,14 @@ string analisadorLexico(){
 * K-> final id = const
 *
 * Comandos (C)
-* R-> id['['E']'] := E
+* 
 * C-> for'('A;E;A')' B
 * C-> if'('E')' then B [else B]
 * C-> ;
 * C-> readln'('V')';
 * C-> write'('E{,E}')'; | writeln'('E{,E}')';
-  C-> R;
+* C-> R;
+* R-> id['['E']'] := E
 * 
 * Blocos de comandos(A e B)
 * A-> [R{,R}]
@@ -434,6 +474,7 @@ void procedimentoN();
 void procedimentoM();
 void procedimentoK();
 void procedimentoC();
+void procedimentoR();
 void procedimentoA();
 void procedimentoB();
 void procedimentoV();
@@ -449,7 +490,7 @@ void analisadorSintatico(){
 
 void casaToken(string tokenEsp){
     string token;
-    cout << tokenLido << " " << tokenEsp << "\n";
+    //cout << tokenLido << " " << tokenEsp << "\n";
     if(tokenEsp == tokenLido){
         token = tokenLido;
         analisadorLexico();
@@ -469,8 +510,8 @@ void procedimentoS(){
     while(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
         procedimentoC();
     }
+    stat = COMPILADO;
     casaToken("}");
-
 }
 
 //Declaracoes
@@ -552,22 +593,15 @@ void procedimentoK(){
 }
 
 //Comandos
-//C-> id['['E']'] := E
 //C-> for'('A;E;A')' B
 //C-> if'('E')' then B [else B]
 //C-> ;
 //C-> readln'('V')';
 //C-> write'('{E}')'; | writeln'('{E}')';
+//C-> R;
 void procedimentoC(){
     if(tokenLido == "id"){
-        casaToken("id");
-        if(tokenLido == "["){
-            casaToken("[");
-            procedimentoE();
-            casaToken("]");
-        }
-        casaToken(":=");
-        procedimentoE();
+        procedimentoR();
         casaToken(";");
     }
     else{
@@ -642,14 +676,25 @@ void procedimentoC(){
     }
 }
 
+//R-> id['['E']'] := E
+void procedimentoR(){
+    casaToken("id");
+    if(tokenLido == "["){
+        casaToken("[");
+        procedimentoE();
+        casaToken("]");
+    }
+    casaToken(":=");
+    procedimentoE();
+}
 
-//A-> [C{,C}]
+//A-> [R{,R}]
 void procedimentoA(){
     if(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
-        procedimentoC();
+        procedimentoR();
         while(tokenLido == ","){
             casaToken(",");
-            procedimentoC();
+            procedimentoR();
         }
     }
 }
@@ -694,7 +739,7 @@ void procedimentoE(){
     }
 }
 
-//* F-> [+|-] G {(+|-|or) G} 
+//F-> [+|-] G {(+|-|or) G} 
 void procedimentoF(){
     if(tokenLido == "+" || tokenLido == "-"){
         casaToken(tokenLido);
@@ -748,7 +793,6 @@ void procedimentoH(){
 int main(){
     stat = EXECUTANDO;
     analisadorSintatico();
-    stat = EXECUTANDO;
     if(!(stat == ERRO)){
         cout << linha << " linhas compiladas.";
     }

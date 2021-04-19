@@ -99,7 +99,9 @@ void mensagemErro(Erro erro, string lex){
 
 //verifica se o caractere e valido
 bool caractereValido(char c){
-    return ((c>=0 && c<=34) || (c >= 48 && c <= 57) || (c>=37 && c<=45) || c == 47 || (c>=58 &&  c <= 90) || (c>=91 && c<=93) || (c >= 95 && c <= 123) || c == 125);
+    return ((c>=0 && c<=34) || c == 37 || (c>=39 && c <= 93) || c == 95 || (c >= 96 && c <= 123) || c == 125);
+
+    //return ((c>=0 && c<=34) || (c >= 48 && c <= 57) || (c>=37 && c<=45) || c == 47 || (c>=58 &&  c <= 90) || (c>=91 && c<=93) || (c >= 95 && c <= 123) || c == 125);
 }
 
 string analisadorLexico(){
@@ -110,6 +112,11 @@ string analisadorLexico(){
     while(s != 3 && s != 6 && s != 8 && s != 11 && s != 18){
         if(!cin.eof()){
             cin.get(c);
+            if(c == '\n'){
+                if(!cin.eof()){
+                    linha++;
+                }
+            }
             if(!caractereValido(c)){
                 mensagemErro(CARACTERE_INVALIDO,"");
             }
@@ -169,18 +176,10 @@ string analisadorLexico(){
                                                             lexema += c;
                                                         }
                                                         else{
-                                                            if(c == '\n'){
-                                                                if(!cin.eof()){
-                                                                    linha++;
-                                                                }
+                                                            if(c != ' ' && c != '\r' && c != '\t' && c != '\n'){
+                                                                lexema += c;
+                                                                mensagemErro(LEXEMA_INESPERADO, lexema);
                                                             }
-                                                            else{
-                                                                if(!(c == ' ' || c == '\r' || '\t')){
-                                                                    lexema += c;
-                                                                    mensagemErro(LEXEMA_INESPERADO, lexema);
-                                                                }
-                                                            }
-                                                            
                                                         }
                                                     }
                                                 }
@@ -262,11 +261,6 @@ string analisadorLexico(){
                     if(c == '*'){
                         s = 7;
                     }
-                    else{
-                        if(c == '\n' && !cin.eof()){
-                            linha++;
-                        }
-                    }
                     break;
                 case 7:
                     if(c == '/'){
@@ -274,7 +268,9 @@ string analisadorLexico(){
                         lexema = "";
                     }
                     else{
-                        s = 5;
+                        if(c != '*'){
+                            s = 5;
+                        }
                     }
                     break;
                 case 9:
@@ -461,9 +457,9 @@ string analisadorLexico(){
 * Nome de declaracao (N)
 * N-> idM{,idM};
 * Modo de declaracao (M)
-* M-> [:= [-]const] | '['[-]const']'
+* M-> [:= [-]const] | '['const']'
 * Declaracao de constantes (K)
-* K-> final id = const
+* K-> final id = [-]const
 *
 * Comandos (C)
 * 
@@ -477,7 +473,7 @@ string analisadorLexico(){
 * 
 * Blocos de comandos(A e B)
 * A-> [R{,R}]
-* B-> C | '{'{C}'}'
+* B-> C | '{'C{C}'}'
 * Valor (V)
 * V-> id['['E']']
 * 
@@ -589,13 +585,10 @@ void procedimentoN(){
     casaToken(";");
 }
 
-//M-> [:= [-]const] | '['[-]const']'
+//M-> [:= [-]const] | '['const']'
 void procedimentoM(){
     if(tokenLido == "["){
         casaToken("[");
-        if(tokenLido == "-"){
-            casaToken("-");
-        }
         casaToken("const");
         casaToken("]");
     }
@@ -615,6 +608,9 @@ void procedimentoK(){
     casaToken("final");
     casaToken("id");
     casaToken("=");
+    if(tokenLido == "-"){
+        casaToken("-");
+    }
     casaToken("const");
     casaToken(";");
 }
@@ -730,6 +726,7 @@ void procedimentoA(){
 void procedimentoB(){
     if(tokenLido == "{"){
         casaToken("{");
+        procedimentoC();
         while(tokenLido == "id" || tokenLido == "for" || tokenLido == "if" || tokenLido == ";" || tokenLido == "readln" || tokenLido == "write" || tokenLido == "writeln"){
             procedimentoC();
         }

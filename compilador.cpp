@@ -105,6 +105,7 @@ bool caractereValido(char c){
 string analisadorLexico(){
     int s = 0;
     char c;
+    bool idValido = false;
     string lexema = "";
     while(s != 3 && s != 6 && s != 8 && s != 11 && s != 18){
         if(!cin.eof()){
@@ -115,6 +116,9 @@ string analisadorLexico(){
             switch(s){
                 case 0:
                     if(c >= 65 && c <= 90 || c == '_' || c >= 97 && c <= 122){ //letras ou _
+                        if(c != '_'){ //checa se o id e composto somente de underline
+                            idValido = true;
+                        }
                         s = 1;
                         lexema += c;
                     }
@@ -171,12 +175,13 @@ string analisadorLexico(){
                                                                 }
                                                             }
                                                             else{
-                                                                if(!(c == ' ' || c == '\r')){
-                                                                    mensagemErro(LEXEMA_INESPERADO, lexema+c);
+                                                                if(!(c == ' ' || c == '\r' || '\t')){
+                                                                    lexema += c;
+                                                                    mensagemErro(LEXEMA_INESPERADO, lexema);
                                                                 }
                                                             }
+                                                            
                                                         }
-                                                        
                                                     }
                                                 }
                                             }
@@ -189,18 +194,34 @@ string analisadorLexico(){
                     break;
                 case 1:
                     if((c >= 65 && c <= 90) || c == '_' || (c >= 48 && c <= 57) || c >= 97 && c <= 122){ //letra, digito ou _
-                        s = 1;
-                        lexema += c;
+                        if(c != '_'){ //checa se o id e composto somente de underline
+                            idValido = true;
+                        }
+                        if(lexema.length() < 32){
+                            s = 1;
+                            lexema += c;
+                        }
                     }
                     else{
                         s = 6;
-                        if(ts.hash[lexema] > 0 && ts.hash[lexema] < 40){ //caso o lexema seja uma palavra reservada
-                            tokenLido = lexema;
+                        if(idValido){
+                            int posTabela = ts.hash[lexema]; //posicao do lexema na tabela de simbolos
+                            if(posTabela > 0 && posTabela < 40){ //caso o lexema seja uma palavra reservada
+                                if(posTabela == 10 || posTabela == 11){ //lexema = "TRUE" ou "FALSE"
+                                    tokenLido = "const";
+                                }
+                                else{
+                                    tokenLido = lexema;
+                                }
+                            }
+                            else{
+                                tokenLido = "id";
+                            }
+                            ts.addLexema(lexema); //adiciona o identificador na tabela de simbolos
                         }
                         else{
-                            tokenLido = "id";
+                            mensagemErro(LEXEMA_INESPERADO, lexema);
                         }
-                        ts.addLexema(lexema); //adiciona o identificador na tabela de simbolos
                         if(c != '\n'){
                             cin.unget();
                         }
@@ -328,10 +349,11 @@ string analisadorLexico(){
                 case 15:
                     if(c == 'h'){
                         s = 18;
-                        tokenLido = "char";
+                        tokenLido = "const";
                         lexema += c;
                     }
                     else{
+                        //lexema += c;
                         mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
                     break;
@@ -362,7 +384,7 @@ string analisadorLexico(){
                     else{
                         if(c == 'h'){
                             s = 18;
-                            tokenLido = "char";
+                            tokenLido = "const";
                             lexema += c;
                         }
                         else{
@@ -381,7 +403,7 @@ string analisadorLexico(){
                 case 20:
                     if(c == '\''){
                         s = 8;
-                        tokenLido = "char";
+                        tokenLido = "const";
                         lexema += c;
                     }
                     else{
@@ -391,10 +413,8 @@ string analisadorLexico(){
                 case 21:
                     if(c == 'h'){
                         s = 18;
-                        tokenLido = "char";
-                        if(c != '\n'){
-                            cin.unget();
-                        }
+                        tokenLido = "const";
+                        lexema += "h";
                     }
                     else{
                         mensagemErro(LEXEMA_INESPERADO, lexema);
@@ -414,6 +434,7 @@ string analisadorLexico(){
                     else{
                         mensagemErro(LEXEMA_INESPERADO, lexema);
                     }
+                    break;
             }
         }
         else{
@@ -440,7 +461,7 @@ string analisadorLexico(){
 * Nome de declaracao (N)
 * N-> idM{,idM};
 * Modo de declaracao (M)
-* M-> [:= const] | '['const']'
+* M-> [:= [-]const] | '['[-]const']'
 * Declaracao de constantes (K)
 * K-> final id = const
 *
@@ -568,16 +589,22 @@ void procedimentoN(){
     casaToken(";");
 }
 
-//M-> [:= const] | '['const']'
+//M-> [:= [-]const] | '['[-]const']'
 void procedimentoM(){
     if(tokenLido == "["){
         casaToken("[");
+        if(tokenLido == "-"){
+            casaToken("-");
+        }
         casaToken("const");
         casaToken("]");
     }
     else{
         if(tokenLido == ":="){
             casaToken(":=");
+            if(tokenLido == "-"){
+                casaToken("-");
+            }
             casaToken("const");
         }
     }
@@ -597,7 +624,7 @@ void procedimentoK(){
 //C-> if'('E')' then B [else B]
 //C-> ;
 //C-> readln'('V')';
-//C-> write'('{E}')'; | writeln'('{E}')';
+//C-> write'('E{,E}')'; | writeln'('E{,E}')';
 //C-> R;
 void procedimentoC(){
     if(tokenLido == "id"){

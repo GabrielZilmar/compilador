@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <fstream>
 
 using namespace std;
 
@@ -19,10 +20,10 @@ void procedimentoR();
 void procedimentoA();
 void procedimentoB();
 void procedimentoV();
-void procedimentoE(string *tipoE, int *tamanhoE);
-void procedimentoF(string *tipoF, int *tamanhoF);
-void procedimentoG(string *tipoG, int *tamanhoG);
-void procedimentoH(string *tipoH, int *tamanhoH);
+void procedimentoE(string *tipoE, int *tamanhoE, int *endE);
+void procedimentoF(string *tipoF, int *tamanhoF, int *endF);
+void procedimentoG(string *tipoG, int *tamanhoG, int *endG);
+void procedimentoH(string *tipoH, int *tamanhoH, int *endH);
 
 class RegistroLexico
 {
@@ -65,6 +66,8 @@ public:
     string classe; //[final, var, void ("")]
     string tipo;   //[int, bool, char]
     int tamanho;   //[Unitario (= 0), vetor (> 0)]
+    int end;  //endereco na memoria
+
 
 public:
     Simbolo();
@@ -165,17 +168,22 @@ Simbolo *TabelaSimbolos::addLexema(Simbolo &simb)
 }
 
 //atributos globais
-RegistroLexico tokenAnte; // token anterior
-RegistroLexico tokenLido; // token atual
-TabelaSimbolos ts;        //tabela de simbolos
-int linha = 1;            //linha atual do programa
+int proxEndereco = 0x4000; // proximo endereco disponivel na memoria 
+int proxEndTemp = 0;       // proximo endereco disponivel na memoria dos temporarios
+int proxRot = 1;           // proximo rotulo para as instrucoes de salto
+RegistroLexico tokenAnte;  // token anterior
+RegistroLexico tokenLido;  // token atual
+TabelaSimbolos ts;         // tabela de simbolos
+int linha = 1;             // linha atual do programa
+ofstream fout("exec.asm"); // arquivo de saida
+
 enum Status
 {
     EXECUTANDO,
     ERRO,
     COMPILADO
 };           //status possiveis de execucao
-Status stat; //status de execucao
+Status stat; //status de execucao atual
 enum Erro
 {
     EOF_INESPERADO,
@@ -697,7 +705,7 @@ void analisadorLexico()
 * D-> TN | K 
 *
 * Tipo (T)
-* T-> char | string | int | boolean 
+* T-> char | int | boolean 
 * Nome de declaracao (N)
 * N-> idM{,idM};
 * Modo de declaracao (M)
@@ -727,6 +735,28 @@ void analisadorLexico()
 * H-> id ['['E']'] | const | not H | '('E')'
 */
 
+int novoTemp(string tipo, int tamanho){
+    int endereco = proxEndTemp;
+    if(tamanho > 0){
+        if(tipo == "char"){
+            proxEndTemp += tamanho + 1;
+        }
+        else{
+            proxEndTemp += tamanho * 2;
+        }
+    }
+    else{
+        proxEndTemp += (tipo == "char" ? 1 : 2);
+    }
+    return endereco;
+}
+
+string novoRot(){
+    string rotulo = "R" + proxRot;
+    proxRot++;
+    return rotulo;
+}
+
 void analisadorSintatico()
 {
     analisadorLexico();
@@ -735,7 +765,7 @@ void analisadorSintatico()
 
 void casaToken(string tokenEsp)
 {
-    cout << tokenLido.lexema << "/" << tokenLido.token << "\\" << tokenEsp << "\n";
+    //cout << tokenLido.lexema << "/" << tokenLido.token << "\\" << tokenEsp << "\n";
     if (tokenEsp == tokenLido.token)
     {
         tokenAnte = tokenLido;
@@ -751,16 +781,31 @@ void casaToken(string tokenEsp)
 //S-> {D} main '{'{C}'}' eof
 void procedimentoS()
 {
+    fout << "sseg SEGMENT STACK ;início seg. pilha" << endl <<
+            "byte 4000h DUP(?) ;dimensiona pilha" << endl <<
+            "sseg ENDS ;fim seg. pilha" << endl << endl <<
+            "dseg SEGMENT PUBLIC ;início seg. dados" << endl <<
+            "byte 4000h DUP(?) ;temporários" << endl;
     while (tokenLido.token == "char" || tokenLido.token == "int" || tokenLido.token == "string" || tokenLido.token == "boolean" || tokenLido.token == "final")
     {
         procedimentoD();
     }
+    fout << "dseg ENDS ;fim seg. dados" << endl << endl;
     casaToken("main");
+    fout << "cseg SEGMENT PUBLIC ;início seg. código" << endl <<
+            "ASSUME CS:cseg, DS:dseg" << endl <<
+            "strt:" << endl <<
+            "mov ax, dseg" << endl <<
+            "mov ds, ax" << endl;
     casaToken("{");
     while (tokenLido.token == "id" || tokenLido.token == "for" || tokenLido.token == "if" || tokenLido.token == ";" || tokenLido.token == "readln" || tokenLido.token == "write" || tokenLido.token == "writeln")
     {
         procedimentoC();
     }
+    fout << "mov ah, 4Ch" << endl <<
+            "int 21h" << endl << 
+            "cseg ENDS ;fim seg. código" << endl <<
+            "END strt ;fim programa" << endl;
     stat = COMPILADO;
     casaToken("}");
 }
@@ -788,13 +833,14 @@ void procedimentoD()
     }
 }
 
-//T-> char | string | int | boolean
+//T-> char | int | boolean
 void procedimentoT(string *tipoID)
 {
     if (tokenLido.token == "char")
     {
         casaToken("char");
         *tipoID = "char";
+        fout << "byte ";
     }
     else
     {
@@ -802,24 +848,19 @@ void procedimentoT(string *tipoID)
         {
             casaToken("int");
             *tipoID = "int";
+            fout << "sword ";
         }
         else
         {
-            if (tokenLido.token == "string")
+            if (tokenLido.token == "boolean")
             {
-                casaToken("string");
+                casaToken("boolean");
+                *tipoID = "boolean";
+                fout << "sword ";
             }
             else
             {
-                if (tokenLido.token == "boolean")
-                {
-                    casaToken("boolean");
-                    *tipoID = "boolean";
-                }
-                else
-                {
-                    mensagemErro(TOKEN_INESPERADO, tokenLido.lexema);
-                }
+                mensagemErro(TOKEN_INESPERADO, tokenLido.lexema);
             }
         }
     }
@@ -843,6 +884,12 @@ void procedimentoN(string tipoID)
     int tamanhoID;
     procedimentoM(&tamanhoID, tipoID);
     id.endereco->tamanho = tamanhoID;
+    if(tamanhoID > 0){
+        proxEndereco += tamanhoID * (tipoID == "char" ? 1 : 2);
+    }
+    else{
+        proxEndereco += (tipoID == "char" ? 1 : 2);
+    }
     while (tokenLido.token == ",")
     {
         casaToken(",");
@@ -859,6 +906,18 @@ void procedimentoN(string tipoID)
         }
         procedimentoM(&tamanhoID, tipoID);
         id.endereco->tamanho = tamanhoID;
+        id.endereco->end = proxEndereco;
+        if(tamanhoID > 0){
+            if(tipoID == "char"){
+                proxEndereco += tamanhoID + 1;
+            }
+            else{
+                proxEndereco += tamanhoID * 2;
+            }
+        }
+        else{
+            proxEndereco += (tipoID == "char" ? 1 : 2);
+        }
     }
     casaToken(";");
 }
@@ -866,7 +925,7 @@ void procedimentoN(string tipoID)
 //M-> [:= [-]const] | '['const']'
 void procedimentoM(int *tamanhoID, string tipoID)
 {
-
+    bool temSinal = false;
     *tamanhoID = 0;
     if (tokenLido.token == "[")
     {
@@ -876,10 +935,11 @@ void procedimentoM(int *tamanhoID, string tipoID)
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
         }
-        if((tipoID != "char" && stoi(tokenAnte.lexema) >  4096) || stoi(tokenAnte.lexema) > 8192){
+        if((tipoID == "int" && stoi(tokenAnte.lexema) >  4096) || stoi(tokenAnte.lexema) > 8191){
             mensagemErro(TAM_VETOR_EXCEDE_MAX, "");
         }
         *tamanhoID = stoi(tokenAnte.lexema);
+        fout << *tamanhoID << " DUP(?)" << endl;
         casaToken("]");
     }
     else
@@ -889,13 +949,22 @@ void procedimentoM(int *tamanhoID, string tipoID)
             casaToken(":=");
             if (tokenLido.token == "-")
             {
+                temSinal = true;
                 casaToken("-");
+                fout<< "-";
             }
             casaToken("const");
+            if(temSinal && tokenAnte.tipo != "int"){
+                mensagemErro(TIPOS_INCOMPATIVEIS, "");
+            }
             if (tokenAnte.tipo != tipoID || tokenAnte.tamanho > 0)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            //fout << stoi(tokenAnte.lexema) << endl;
+        }
+        else{
+            fout << "?" << endl;
         }
     }
 }
@@ -952,7 +1021,8 @@ void procedimentoC()
             casaToken(";");
             string tipoE;
             int tamanhoE;
-            procedimentoE(&tipoE, &tamanhoE);
+            int endE;
+            procedimentoE(&tipoE, &tamanhoE, &endE);
             if (tipoE != "boolean")
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -971,7 +1041,8 @@ void procedimentoC()
 
                 string tipoE;
                 int tamanhoE;
-                procedimentoE(&tipoE, &tamanhoE);
+                int endE;
+                procedimentoE(&tipoE, &tamanhoE, &endE);
                 if (tipoE != "boolean")
                 {
                     mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1004,11 +1075,18 @@ void procedimentoC()
                         casaToken("(");
                         string tipoE;
                         int tamanhoE;
-                        procedimentoE(&tipoE, &tamanhoE);
+                        int endE;
+                        procedimentoE(&tipoE, &tamanhoE, &endE);
+                        if(tipoE != "char" && tamanhoE > 0){
+                            mensagemErro(TIPOS_INCOMPATIVEIS, "");
+                        }
                         while (tokenLido.token == ",")
                         {
                             casaToken(",");
-                            procedimentoE(&tipoE, &tamanhoE);
+                            procedimentoE(&tipoE, &tamanhoE, &endE);
+                            if(tipoE != "char" && tamanhoE > 0){
+                                mensagemErro(TIPOS_INCOMPATIVEIS, "");
+                            }
                         }
                         casaToken(")");
                         casaToken(";");
@@ -1021,11 +1099,18 @@ void procedimentoC()
                             casaToken("(");
                             string tipoE;
                             int tamanhoE;
-                            procedimentoE(&tipoE, &tamanhoE);
+                            int endE;
+                            procedimentoE(&tipoE, &tamanhoE, &endE);
+                            if(tipoE != "char" && tamanhoE > 0){
+                                mensagemErro(TIPOS_INCOMPATIVEIS, "");
+                            }
                             while (tokenLido.token == ",")
                             {
                                 casaToken(",");
-                                procedimentoE(&tipoE, &tamanhoE);
+                                procedimentoE(&tipoE, &tamanhoE, &endE);
+                                if(tipoE != "char" && tamanhoE > 0){
+                                    mensagemErro(TIPOS_INCOMPATIVEIS, "");
+                                }
                             }
                             casaToken(")");
                             casaToken(";");
@@ -1075,7 +1160,8 @@ void procedimentoR()
         }
         string tipoE1;
         int tamanhoE1;
-        procedimentoE(&tipoE1, &tamanhoE1);
+        int endE1;
+        procedimentoE(&tipoE1, &tamanhoE1, &endE1);
         if (tipoE1 != "int" || tamanhoE1 > 0)
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1093,10 +1179,10 @@ void procedimentoR()
     casaToken(":=");
     string tipoE2;
     int tamanhoE2;
-    procedimentoE(&tipoE2, &tamanhoE2);
+    int endE2;
+    procedimentoE(&tipoE2, &tamanhoE2, &endE2);
     if (tipoE2 != tipoR)
     {
-        cout << "r1";
         mensagemErro(TIPOS_INCOMPATIVEIS, "");
     }
     else{
@@ -1104,7 +1190,6 @@ void procedimentoR()
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
         }
         if(tamanhoE2 > tamanhoR){
-            cout << "r2";
             mensagemErro(TAM_VETOR_EXCEDE_MAX, "");
         }
     }
@@ -1158,6 +1243,12 @@ void procedimentoV()
     {
         mensagemErro(ID_NAO_DECLARADO, tokenAnte.lexema);
     }
+    else{
+        if(tokenAnte.endereco->classe != "var"){
+            mensagemErro(CLASSE_INCOMPATIVEL, tokenAnte.lexema);
+        }
+    }
+    string tipoV = tokenAnte.endereco->tipo;
     int tamanhoV = tokenAnte.endereco->tamanho;
     if (tokenLido.token == "[")
     {
@@ -1169,36 +1260,44 @@ void procedimentoV()
 
         string tipoE;
         int tamanhoE;
-        procedimentoE(&tipoE, &tamanhoE);
+        int endE;
+        procedimentoE(&tipoE, &tamanhoE, &endE);
         if (tipoE != "int" || tamanhoE > 0)
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "lexemaV");
         }
         casaToken("]");
     }
+    else{
+        if(tipoV != "char" && tamanhoV > 0){
+            mensagemErro(TIPOS_INCOMPATIVEIS, "");
+        }
+    }
 }
 
 //Expressoes
 //E-> F [ (=|<>|<|>|<=|>=) F]
-void procedimentoE(string *tipoE, int *tamanhoE)
+void procedimentoE(string *tipoE, int *tamanhoE, int *endE)
 {
     *tipoE = "";
     *tamanhoE = 0;
 
     string tipoF1;
     int tamanhoF1;
-    procedimentoF(&tipoF1, &tamanhoF1);
+    int endF1;
+    procedimentoF(&tipoF1, &tamanhoF1, &endF1);
     *tipoE = tipoF1;
     *tamanhoE = tamanhoF1;
 
     string tipoF2;
     int tamanhoF2;
+    int endF2;
     if (tokenLido.token == "=" || tokenLido.token == "<>" || tokenLido.token == "<" || tokenLido.token == ">" || tokenLido.token == "<=" || tokenLido.token == ">=")
     {
         if (tokenLido.token == "=")
         {
             casaToken("=");
-            procedimentoF(&tipoF2, &tamanhoF2);
+            procedimentoF(&tipoF2, &tamanhoF2, &endF2);
             if (*tipoE != tipoF2)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1224,7 +1323,7 @@ void procedimentoE(string *tipoE, int *tamanhoE)
         else
         {
             casaToken(tokenLido.token); //tem que ver isso aqui no futuro
-            procedimentoF(&tipoF2, &tamanhoF2);
+            procedimentoF(&tipoF2, &tamanhoF2, &endF2);
             if (*tipoE != tipoF2)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1240,28 +1339,46 @@ void procedimentoE(string *tipoE, int *tamanhoE)
 }
 
 //F-> [+|-] G {(+|-|or) G}
-void procedimentoF(string *tipoF, int *tamanhoF)
+void procedimentoF(string *tipoF, int *tamanhoF, int *endF)
 {
 
     *tipoF = "";
     *tamanhoF = 0;
 
     bool temSinal = false;
+    bool neg = false;
     if (tokenLido.token == "+" || tokenLido.token == "-")
     {
         casaToken(tokenLido.token);
         temSinal = true;
+        if(tokenLido.token == "-"){
+            neg = true;
+        }
+
     }
 
     string tipoG1;
     int tamanhoG1;
-    procedimentoG(&tipoG1, &tamanhoG1);
+    int endG1;
+    procedimentoG(&tipoG1, &tamanhoG1, &endG1);
     if (temSinal && (tipoG1 != "int" || tamanhoG1 != 0))
     {
         mensagemErro(TIPOS_INCOMPATIVEIS, "");
     }
     *tipoF = tipoG1;
     *tamanhoF = tamanhoG1;
+    if(neg){
+        *endF = novoTemp(*tipoF, *tamanhoF);
+        fout << "mov AX, DS:[" << endG1 << "]" << endl <<
+                "neg AX" << endl <<
+                "add AX,1" << endl <<
+                "mov DS:[" << *endF << "[, AX" << endl;
+                
+    }
+    else{
+        *endF = endG1;
+    }
+
 
     while (tokenLido.token == "+" || tokenLido.token == "-" || tokenLido.token == "or")
     {
@@ -1270,7 +1387,11 @@ void procedimentoF(string *tipoF, int *tamanhoF)
 
         string tipoG2;
         int tamanhoG2;
-        procedimentoG(&tipoG2, &tamanhoG2);
+        int endG2;
+        procedimentoG(&tipoG2, &tamanhoG2, &endG2);
+        
+        fout << "mov AX, DS:[" << *endF << "]" << endl <<
+                "mov BX, DS:[" << endG2 << "]" << endl;
 
         if (oper == "or")
         {
@@ -1278,6 +1399,11 @@ void procedimentoF(string *tipoF, int *tamanhoF)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            fout << "mov CX, AX" << endl <<
+                    "add CX, BX" << endl <<
+                    "imul BX" << endl <<
+                    "sub CX, AX" << endl <<
+                    "mov AX, CX" << endl;
         }
         else
         {
@@ -1285,21 +1411,32 @@ void procedimentoF(string *tipoF, int *tamanhoF)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+
+            if(oper == "-"){
+                fout << "sub AX, BX" << endl;
+            }
+            else{
+                fout << "add AX, BX" << endl;
+            }
         }
+        *endF = novoTemp(*tipoF, *tamanhoF);
+        fout << "mov DS:[" << *endF << "], AX" << endl;
     }
 }
 
 //G-> H {(*|and|/|%) H}
-void procedimentoG(string *tipoG, int *tamanhoG)
+void procedimentoG(string *tipoG, int *tamanhoG, int *endG)
 {
     *tipoG = "";
     *tamanhoG = 0;
 
     string tipoH1;
     int tamanhoH1;
-    procedimentoH(&tipoH1, &tamanhoH1);
+    int endH1;
+    procedimentoH(&tipoH1, &tamanhoH1, &endH1);
     *tipoG = tipoH1;
     *tamanhoG = tamanhoH1;
+    *endG = endH1;
 
     while (tokenLido.token == "*" || tokenLido.token == "and" || tokenLido.token == "/" || tokenLido.token == "%")
     {
@@ -1308,7 +1445,11 @@ void procedimentoG(string *tipoG, int *tamanhoG)
 
         string tipoH2;
         int tamanhoH2;
-        procedimentoH(&tipoH2, &tamanhoH2);
+        int endH2;
+        procedimentoH(&tipoH2, &tamanhoH2, &endH2);
+        fout << "mov AX, DS:[" << *endG << "]" << endl <<
+                "mov BX, DS:[" << endH2 << "]" << endl;
+
         if (*tamanhoG != 0 || tamanhoH2 != 0)
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1317,23 +1458,39 @@ void procedimentoG(string *tipoG, int *tamanhoG)
         {
             if (*tipoG != "boolean" || tipoH2 != "boolean")
             {
-                cout << "aq";
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            fout << "imul BX" << endl;
         }
         else
         {
             if (*tipoG != "int" || tipoH2 != "int")
             {
-                cout << "aq2";
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+
+            if(oper == "*"){
+                fout << "imul BX" << endl;
+            }
+            else{
+                if("/"){
+                    fout << "cwd" << endl <<
+                            "idiv BX" << endl;
+                }
+                else{
+                    fout << "cwd" << endl <<
+                            "idiv BX" << endl <<
+                            "mov AX, DX" << endl;
+                }
+            }
         }
+        *endG = novoTemp(*tipoG, *tamanhoG);
+        fout << "mov DS:[" << *endG << "], AX" << endl;
     }
 }
 
 //H-> id ['['E']'] | const | not H | '('E')'
-void procedimentoH(string *tipoH, int *tamanhoH)
+void procedimentoH(string *tipoH, int *tamanhoH, int *endH)
 {
 
     *tipoH = "";
@@ -1348,6 +1505,7 @@ void procedimentoH(string *tipoH, int *tamanhoH)
         }
         *tipoH = tokenAnte.endereco->tipo;
         *tamanhoH = tokenAnte.endereco->tamanho;
+        int enderecoID = tokenAnte.endereco->end;
         if (tokenLido.token == "[")
         {
             casaToken("[");
@@ -1358,23 +1516,31 @@ void procedimentoH(string *tipoH, int *tamanhoH)
             }
             string tipoE1;
             int tamanhoE1;
-            procedimentoE(&tipoE1, &tamanhoE1);
+            int endE1;
+            procedimentoE(&tipoE1, &tamanhoE1, &endE1);
             if (tipoE1 != "int" || tamanhoE1 > 0)
             {
-                cout << "aq3";
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
 
             casaToken("]");
             *tamanhoH = 0;
+            *endH = novoTemp(*tipoH, *tamanhoH);
+            fout << "mov AX, DS:[" << endE1 << "]" << endl;
+            if(*tipoH != "char"){
+                fout << "add AX, AX";
+            }
+            fout << "add AX, " << enderecoID << endl <<
+                "mov BX, DS:[AX]" << endl <<
+                "mov DS:[" << *endH << "], BX" << endl;
         }
         else
         {
             if (*tipoH != "char" && *tamanhoH > 0)
             {
-                cout << "aq4";
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            *endH = enderecoID;
         }
     }
     else
@@ -1384,7 +1550,42 @@ void procedimentoH(string *tipoH, int *tamanhoH)
             casaToken("const");
             *tipoH = tokenAnte.tipo;
             *tamanhoH = tokenAnte.tamanho;
-        }
+            if(*tipoH == "char" && *tamanhoH > 0){
+                fout << "dseg SEGMENT PUBLIC" << endl <<
+                    "byte " << tokenAnte.lexema.substr(0, tokenAnte.lexema.size()-2) << "$\"" << endl <<
+                    "dseg ENDS" << endl;
+                *endH = proxEndereco;
+                proxEndereco += *tamanhoH + 1;
+            }
+            else{
+                *endH = novoTemp(*tipoH, *tamanhoH);
+                if(tokenAnte.lexema == "\'\\n\'"){
+                    fout << "mov AX, " << 10 << endl <<
+                            "mov DS:[" << *endH << "], AX " << endl;
+                }else{ 
+                    if(tokenAnte.lexema == "\'\\r\'"){
+                        fout << "mov AX, " << 13 << endl <<
+                                "mov DS:[" << *endH << "], AX " << endl;
+                    }
+                    else{
+                        if(tokenAnte.lexema == "TRUE"){
+                            fout << "mov AX, " << 1 << endl <<
+                                "mov DS:[" << *endH << "], AX " << endl;
+                        }
+                        else{
+                            if(tokenAnte.lexema == "FALSE"){
+                                fout << "mov AX, " << 0 << endl <<
+                                    "mov DS:[" << *endH << "], AX " << endl;
+                            }
+                            else{
+                                fout << "mov AX, " << tokenAnte.lexema << endl <<
+                                        "mov DS:[" << *endH << "], AX " << endl;
+                            }
+                        }
+                    }
+                }
+            }
+        }   
         else
         {
             if (tokenLido.token == "not")
@@ -1392,14 +1593,19 @@ void procedimentoH(string *tipoH, int *tamanhoH)
                 casaToken("not");
                 string tipoH1;
                 int tamanhoH1;
-                procedimentoH(&tipoH1, &tamanhoH1);
+                int endH1;
+                procedimentoH(&tipoH1, &tamanhoH1, &endH1);
                 if (tipoH1 != "boolean")
                 {
-                    cout << "aq5";
                     mensagemErro(TIPOS_INCOMPATIVEIS, "");
                 }
                 *tipoH = tipoH1;
                 *tamanhoH = tamanhoH1;
+                *endH = novoTemp(*tipoH, *tamanhoH);
+                fout << "mov AX, DS:[" << endH1 << "]" << endl <<
+                        "neg AX" << endl <<
+                        "add AX, 1" << endl <<
+                        "mov DS:[" << *endH << "], AX" << endl;
             }
             else
             {
@@ -1408,9 +1614,11 @@ void procedimentoH(string *tipoH, int *tamanhoH)
                     casaToken("(");
                     string tipoE2;
                     int tamanhoE2;
-                    procedimentoE(&tipoE2, &tamanhoE2);
+                    int endE2;
+                    procedimentoE(&tipoE2, &tamanhoE2, &endE2);
                     *tipoH = tipoE2;
                     *tamanhoH = tamanhoE2;
+                    *endH = endE2;
                     casaToken(")");
                 }
             }

@@ -5,6 +5,13 @@
 #include <unordered_map>
 #include <fstream>
 
+
+/* Grupo 30
+* Erick Hermano Lage Novais
+* Gabriel Campos Zilmar Caetano
+* Joao Carlos Rodrigues Couto
+*/
+
 using namespace std;
 
 class Simbolo;
@@ -748,11 +755,11 @@ int novoTemp(string tipo, int tamanho){
     else{
         proxEndTemp += (tipo == "char" ? 1 : 2);
     }
-    return endereco;
+    return endereco;  
 }
 
 string novoRot(){
-    string rotulo = "R" + proxRot;
+    string rotulo = "R" + to_string(proxRot);
     proxRot++;
     return rotulo;
 }
@@ -840,7 +847,6 @@ void procedimentoT(string *tipoID)
     {
         casaToken("char");
         *tipoID = "char";
-        fout << "byte ";
     }
     else
     {
@@ -848,7 +854,6 @@ void procedimentoT(string *tipoID)
         {
             casaToken("int");
             *tipoID = "int";
-            fout << "sword ";
         }
         else
         {
@@ -856,7 +861,6 @@ void procedimentoT(string *tipoID)
             {
                 casaToken("boolean");
                 *tipoID = "boolean";
-                fout << "sword ";
             }
             else
             {
@@ -927,6 +931,13 @@ void procedimentoM(int *tamanhoID, string tipoID)
 {
     bool temSinal = false;
     *tamanhoID = 0;
+
+    if(tipoID == "char"){
+        fout << "byte ";
+    }
+    else{
+        fout << "sword ";
+    }
     if (tokenLido.token == "[")
     {
         casaToken("[");
@@ -939,7 +950,7 @@ void procedimentoM(int *tamanhoID, string tipoID)
             mensagemErro(TAM_VETOR_EXCEDE_MAX, "");
         }
         *tamanhoID = stoi(tokenAnte.lexema);
-        fout << *tamanhoID << " DUP(?)" << endl;
+        fout << *tamanhoID+1 << " DUP(?)" << endl;
         casaToken("]");
     }
     else
@@ -951,7 +962,7 @@ void procedimentoM(int *tamanhoID, string tipoID)
             {
                 temSinal = true;
                 casaToken("-");
-                fout<< "-";
+                fout << "-";
             }
             casaToken("const");
             if(temSinal && tokenAnte.tipo != "int"){
@@ -961,7 +972,12 @@ void procedimentoM(int *tamanhoID, string tipoID)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
-            //fout << stoi(tokenAnte.lexema) << endl;
+            if(tokenAnte.lexema == "TRUE" || tokenAnte.lexema == "FALSE"){
+                fout << ((tokenAnte.lexema == "TRUE") ? 1 : 0) << endl;
+            }
+            else{
+                fout << tokenAnte.lexema << endl;
+            }
         }
         else{
             fout << "?" << endl;
@@ -989,12 +1005,25 @@ void procedimentoK()
         casaToken("-");
     }
     casaToken("const");
+    if(tokenAnte.tipo == "char"){
+        fout << "byte ";
+    }
+    else{
+        fout << "sword ";
+    }
+    if(tokenAnte.lexema == "TRUE" || tokenAnte.lexema == "FALSE"){
+        fout << ((tokenAnte.lexema == "TRUE") ? 1 : 0) << endl;
+    }
+    else{
+        fout << tokenAnte.lexema << endl;
+    }
     if(tokenAnte.tamanho > 0){
         mensagemErro(TIPOS_INCOMPATIVEIS, "");
     }
     id.endereco->tipo = tokenAnte.tipo;
     id.endereco->tamanho = 0;
     casaToken(";");
+
 }
 
 //Comandos
@@ -1022,15 +1051,35 @@ void procedimentoC()
             string tipoE;
             int tamanhoE;
             int endE;
+
+            string rotInicio = novoRot();
+            string rotFim = novoRot();
+            string rotCmd = novoRot(); //comandos do for
+            string rotInc = novoRot(); //incremento do for
+
+            fout << rotInicio << ":" << endl;
+
             procedimentoE(&tipoE, &tamanhoE, &endE);
             if (tipoE != "boolean")
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            fout << "mov AX, DS:[" << endE << "]" << endl <<
+                    "cmp AX, 1" << endl <<
+                    "je " << rotCmd << endl <<
+                    "jmp " << rotFim << endl <<
+                    rotInc << ":" << endl;
+
             casaToken(";");
             procedimentoA();
             casaToken(")");
+
+            fout << "jmp " << rotInicio << endl <<
+                    rotCmd << ":" << endl;
             procedimentoB();
+            fout << "jmp " << rotInc << endl <<
+                    rotFim << ":" << endl;
+            proxEndTemp = 0;
         }
         else
         {
@@ -1042,20 +1091,32 @@ void procedimentoC()
                 string tipoE;
                 int tamanhoE;
                 int endE;
+
+                string rotFalso = novoRot(); //caso o if seja falso
+                string rotFim = novoRot();
                 procedimentoE(&tipoE, &tamanhoE, &endE);
                 if (tipoE != "boolean")
                 {
                     mensagemErro(TIPOS_INCOMPATIVEIS, "");
                 }
+                fout << "mov AX, DS:[" << endE << "]" << endl <<
+                        "cmp AX, 1" << endl <<
+                        "jne " << rotFalso << endl;
+
 
                 casaToken(")");
                 casaToken("then");
                 procedimentoB();
+                fout << "jmp " << rotFim << endl <<
+                        rotFalso << ":" << endl;
+
                 if (tokenLido.token == "else")
                 {
                     casaToken("else");
                     procedimentoB();
                 }
+                fout << rotFim << ":" << endl;
+                proxEndTemp = 0;
             }
             else
             {
@@ -1066,6 +1127,7 @@ void procedimentoC()
                     procedimentoV();
                     casaToken(")");
                     casaToken(";");
+                    proxEndTemp = 0;
                 }
                 else
                 {
@@ -1077,6 +1139,50 @@ void procedimentoC()
                         int tamanhoE;
                         int endE;
                         procedimentoE(&tipoE, &tamanhoE, &endE);
+
+                        string j1 = novoRot();
+                        string j2 = novoRot();
+                        string j3 = novoRot();
+
+                        int stringEnd;
+                        if(tipoE == "char"){
+                            stringEnd = novoTemp("char", 255);
+
+                            fout << "mov AX, DS:[" << endE << "]" << endl;
+
+                            fout << "mov DI, " << stringEnd << endl <<
+                                    "mov CX, 0" << endl <<
+                                    "cmp AX, 0" << endl <<
+                                    "jge " << j1 << endl <<
+                                    "mov BL, 2Dh" << endl <<
+                                    "mov DS:[DI], BL" << endl <<
+                                    "add DI, 1" << endl <<
+                                    "neg AX" << endl <<
+                                    j1 << ":" << endl <<
+                                    "mov BX, 10" << endl <<
+                                    j2 << ":" << endl <<
+                                    "add CX, 1" << endl <<
+                                    "mov DX, 0" << endl <<
+                                    "idiv BX" << endl <<
+                                    "push DX" << endl <<
+                                    "cmp AX, 0" << endl <<
+                                    "jne " << j2 << endl <<
+                                    j3 << ":" << endl <<
+                                    "pop DX" << endl <<
+                                    "add DX, 30h" << endl <<
+                                    "mov DS:[DI], DL" << endl <<
+                                    "add DI, 1" << endl <<
+                                    "add CX, -1" << endl <<
+                                    "cmp CX, 0" << endl <<
+                                    "jne " << j3 << endl;
+
+                            fout << "mov DL, 024h" << endl <<
+                                    "mov DS:[DI], DL" << endl <<
+                                    "mov DX, " << stringEnd << endl;
+                        }else{
+                            fout << "mov DX, " << endE << endl;          
+                        }
+
                         if(tipoE != "char" && tamanhoE > 0){
                             mensagemErro(TIPOS_INCOMPATIVEIS, "");
                         }
@@ -1084,12 +1190,61 @@ void procedimentoC()
                         {
                             casaToken(",");
                             procedimentoE(&tipoE, &tamanhoE, &endE);
+
+                            string j1 = novoRot();
+                            string j2 = novoRot();
+                            string j3 = novoRot();
+
+                            int stringEnd;
+                            if(tipoE == "char"){
+                                stringEnd = novoTemp("char", 255);
+
+                                fout << "mov AX, DS:[" << endE << "]" << endl;
+
+                                fout << "mov DI, " << stringEnd << endl <<
+                                        "mov CX, 0" << endl <<
+                                        "cmp AX, 0" << endl <<
+                                        "jge " << j1 << endl <<
+                                        "mov BL, 2Dh" << endl <<
+                                        "mov DS:[DI], BL" << endl <<
+                                        "add DI, 1" << endl <<
+                                        "neg AX" << endl <<
+                                        j1 << ":" << endl <<
+                                        "mov BX, 10" << endl <<
+                                        j2 << ":" << endl <<
+                                        "add CX, 1" << endl <<
+                                        "mov DX, 0" << endl <<
+                                        "idiv BX" << endl <<
+                                        "push DX" << endl <<
+                                        "cmp AX, 0" << endl <<
+                                        "jne " << j2 << endl <<
+                                        j3 << ":" << endl <<
+                                        "pop DX" << endl <<
+                                        "add DX, 30h" << endl <<
+                                        "mov DS:[DI], DL" << endl <<
+                                        "add DI, 1" << endl <<
+                                        "add CX, -1" << endl <<
+                                        "cmp CX, 0" << endl <<
+                                        "jne " << j3 << endl;
+
+                                fout << "mov DL, 024h" << endl <<
+                                        "mov DS:[DI], DL" << endl <<
+                                        "mov DX, " << stringEnd << endl;
+                            }else{
+                                fout << "mov DX, " << endE << endl;          
+                            }
+
+                            fout << "mov AH, 09h" << endl <<
+                                    "int 21h" << endl;
+
                             if(tipoE != "char" && tamanhoE > 0){
                                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
                             }
                         }
+
                         casaToken(")");
                         casaToken(";");
+                        proxEndTemp = 0;
                     }
                     else
                     {
@@ -1101,6 +1256,53 @@ void procedimentoC()
                             int tamanhoE;
                             int endE;
                             procedimentoE(&tipoE, &tamanhoE, &endE);
+
+                            string j1 = novoRot();
+                            string j2 = novoRot();
+                            string j3 = novoRot();
+
+                            int stringEnd;
+                            if(tipoE == "char"){
+                                stringEnd = novoTemp("char", 255);
+
+                                fout << "mov AX, DS:[" << endE << "]" << endl;
+
+                                fout << "mov DI, " << stringEnd << endl <<
+                                        "mov CX, 0" << endl <<
+                                        "cmp AX, 0" << endl <<
+                                        "jge " << j1 << endl <<
+                                        "mov BL, 2Dh" << endl <<
+                                        "mov DS:[DI], BL" << endl <<
+                                        "add DI, 1" << endl <<
+                                        "neg AX" << endl <<
+                                        j1 << ":" << endl <<
+                                        "mov BX, 10" << endl <<
+                                        j2 << ":" << endl <<
+                                        "add CX, 1" << endl <<
+                                        "mov DX, 0" << endl <<
+                                        "idiv BX" << endl <<
+                                        "push DX" << endl <<
+                                        "cmp AX, 0" << endl <<
+                                        "jne " << j2 << endl <<
+                                        j3 << ":" << endl <<
+                                        "pop DX" << endl <<
+                                        "add DX, 30h" << endl <<
+                                        "mov DS:[DI], DL" << endl <<
+                                        "add DI, 1" << endl <<
+                                        "add CX, -1" << endl <<
+                                        "cmp CX, 0" << endl <<
+                                        "jne " << j3 << endl;
+
+                                fout << "mov DL, 024h" << endl <<
+                                        "mov DS:[DI], DL" << endl <<
+                                        "mov DX, " << stringEnd << endl;
+                            }else{
+                                fout << "mov DX, " << endE << endl;          
+                            }
+
+                            fout << "mov AH, 09h" << endl <<
+                                    "int 21h" << endl;
+
                             if(tipoE != "char" && tamanhoE > 0){
                                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
                             }
@@ -1108,12 +1310,64 @@ void procedimentoC()
                             {
                                 casaToken(",");
                                 procedimentoE(&tipoE, &tamanhoE, &endE);
+                                string j1 = novoRot();
+                                string j2 = novoRot();
+                                string j3 = novoRot();
+
+                                int stringEnd;
+                                if(tipoE == "char"){
+                                    stringEnd = novoTemp("char", 255);
+
+                                    fout << "mov AX, DS:[" << endE << "]" << endl;
+
+                                    fout << "mov DI, " << stringEnd << endl <<
+                                            "mov CX, 0" << endl <<
+                                            "cmp AX, 0" << endl <<
+                                            "jge " << j1 << endl <<
+                                            "mov BL, 2Dh" << endl <<
+                                            "mov DS:[DI], BL" << endl <<
+                                            "add DI, 1" << endl <<
+                                            "neg AX" << endl <<
+                                            j1 << ":" << endl <<
+                                            "mov BX, 10" << endl <<
+                                            j2 << ":" << endl <<
+                                            "add CX, 1" << endl <<
+                                            "mov DX, 0" << endl <<
+                                            "idiv BX" << endl <<
+                                            "push DX" << endl <<
+                                            "cmp AX, 0" << endl <<
+                                            "jne " << j2 << endl <<
+                                            j3 << ":" << endl <<
+                                            "pop DX" << endl <<
+                                            "add DX, 30h" << endl <<
+                                            "mov DS:[DI], DL" << endl <<
+                                            "add DI, 1" << endl <<
+                                            "add CX, -1" << endl <<
+                                            "cmp CX, 0" << endl <<
+                                            "jne " << j3 << endl;
+
+                                    fout << "mov DL, 024h" << endl <<
+                                            "mov DS:[DI], DL" << endl <<
+                                            "mov DX, " << stringEnd << endl;
+                                }else{
+                                    fout << "mov DX, " << endE << endl;          
+                                }
+
+                                fout << "mov AH, 09h" << endl <<
+                                        "int 21h" << endl <<
+                                        "mov AH, 02h" << endl <<
+                                        "mov DL, 0Dh" << endl <<
+                                        "int 21h" << endl <<
+                                        "mov DL, 0Ah" << endl <<
+                                        "int 21h" << endl;
+
                                 if(tipoE != "char" && tamanhoE > 0){
                                     mensagemErro(TIPOS_INCOMPATIVEIS, "");
                                 }
                             }
                             casaToken(")");
                             casaToken(";");
+                            proxEndTemp = 0;
                         }
                         else
                         {
@@ -1151,6 +1405,12 @@ void procedimentoR()
     }
     string tipoR = tokenAnte.endereco->tipo;
     int tamanhoR = tokenAnte.endereco->tamanho;
+    int endR = tokenAnte.endereco->end;
+    bool array = false;
+
+    string tipoE1;
+    int tamanhoE1;
+    int endE1;
     if (tokenLido.token == "[")
     {
         casaToken("[");
@@ -1158,9 +1418,6 @@ void procedimentoR()
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
         }
-        string tipoE1;
-        int tamanhoE1;
-        int endE1;
         procedimentoE(&tipoE1, &tamanhoE1, &endE1);
         if (tipoE1 != "int" || tamanhoE1 > 0)
         {
@@ -1168,6 +1425,7 @@ void procedimentoR()
         }
         casaToken("]");
         tamanhoR = 0;
+        array = true;
     }
     else
     {
@@ -1193,6 +1451,45 @@ void procedimentoR()
             mensagemErro(TAM_VETOR_EXCEDE_MAX, "");
         }
     }
+
+    if(tipoR == "char" && tamanhoR > 0){
+        string rotIncio = novoRot();
+        string rotCmd = novoRot();
+        string rotInc = novoRot();
+        string rotFim = novoRot();
+
+        fout << "mov DI, " << endR << endl <<
+                "mov SI, " << endE2 << endl <<
+                rotIncio << ":" << endl <<
+                "mov DX, DS:[DI]" << endl <<
+                "cmp DX, 024h" << endl <<
+                "je " << rotFim << endl <<
+                "jmp " << rotCmd << endl <<
+                rotInc << ":" << endl <<
+                "add DI, 1" << endl <<
+                "add SI, 1" << endl <<
+                "jmp " << rotIncio << endl <<
+                rotCmd << ":" << endl <<
+                "mov DX, DS:[SI]" << endl <<
+                "mov DS:[DI], DX" << endl <<
+                "jmp " << rotInc << endl <<
+                rotFim << ":" << endl;
+    }
+    else{
+        fout << "mov AX, DS:[" << endE2 << "]" << endl;
+        if(array){
+            fout << "mov SI, DS:[" << endE1 << "]" << endl;
+            if(tipoR == "int"){
+                fout << "add SI, SI" << endl; 
+            }
+            fout << "add SI, " << endR << endl <<
+                    "mov DS:[SI], AX" << endl; 
+        }
+        else{
+            fout << "mov DS:[" << endR << "], AX" << endl;
+        }
+    }
+    proxEndTemp = 0;
 }
 
 //A-> [R{,R}]
@@ -1250,6 +1547,14 @@ void procedimentoV()
     }
     string tipoV = tokenAnte.endereco->tipo;
     int tamanhoV = tokenAnte.endereco->tamanho;
+    int endV = tokenAnte.endereco->end;
+
+    string tipoE;
+    int tamanhoE;
+    int endE;
+
+    int buffer = novoTemp("char", 255);
+    bool array = false;
     if (tokenLido.token == "[")
     {
         casaToken("[");
@@ -1258,21 +1563,109 @@ void procedimentoV()
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
         }
 
-        string tipoE;
-        int tamanhoE;
-        int endE;
         procedimentoE(&tipoE, &tamanhoE, &endE);
         if (tipoE != "int" || tamanhoE > 0)
         {
             mensagemErro(TIPOS_INCOMPATIVEIS, "lexemaV");
         }
         casaToken("]");
+        array = true;
     }
     else{
         if(tipoV != "char" && tamanhoV > 0){
             mensagemErro(TIPOS_INCOMPATIVEIS, "");
         }
     }
+
+    fout << "mov DX, " << buffer << endl <<
+            "mov AL, 0FFh" << endl <<
+            "mov DS:[" << buffer << "], AL" << endl <<
+            "mov AH, 0Ah" << endl <<
+            "int 21h" << endl <<
+            "mov AH, 02h" << endl <<
+            "mov DL, 0Dh" << endl <<
+            "int 21h" << endl;
+
+    if(tipoV == "char" && tamanhoV >0){
+        string rotIncio = novoRot();
+        string rotCmd = novoRot();
+        string rotInc = novoRot();
+        string rotFim = novoRot();
+
+        fout << "mov DI, " << endV << endl <<
+                "mov SI, " << buffer << endl <<
+                rotIncio << ":" << endl <<
+                "mov DX, DS:[DI]" << endl <<
+                "cmp DX, 0Ah" << endl <<
+                "je " << rotFim << endl <<
+                "jmp " << rotCmd << endl <<
+                rotInc << ":" << endl <<
+                "add DI, 1" << endl <<
+                "add SI, 1" << endl <<
+                "jmp " << rotIncio << endl <<
+                rotCmd << ":" << endl <<
+                "mov DX, DS:[SI]" << endl <<
+                "mov DS:[DI], DX" << endl <<
+                "jmp " << rotInc << endl <<
+                rotFim << ":" << endl << 
+                "mov DS:[DI], 024h" << endl;
+    }
+    else{
+        if(tipoV == "char"){
+            fout << "mov DI, " << (buffer+2) << endl <<
+                    "mov AX, DS:[DI]";
+            if(array){
+                fout << "mov SI, DS:[" << endE << "]" << endl <<
+                        "add SI, " << endV << endl <<
+                        "mov DS:[SI], AX" << endl;
+            }else{
+                fout << "mov DS:[" << endV << "], AX" << endl;
+            }
+        }
+        else{
+            string j1 = novoRot();
+            string j2 = novoRot();
+            string j3 = novoRot();
+
+            fout << "mov DI, " << (buffer+2) << endl <<
+                    "mov AX, 0" << endl <<
+                    "mov CX, 10" << endl << 
+                    "mov DX, 1" << endl << 
+                    "mov BH, 0" << endl <<
+                    "mov BL, DS:[DI]" << endl << 
+                    "cmp BX, 2Dh" << endl <<
+                    "jne " << j1 << endl << 
+                    "mov DX, -1" << endl <<
+                    "add DI, 1" << endl <<
+                    "mov BL, DS:[DI]" << endl <<
+                    j1 << ":" << endl <<
+                    "push DX" << endl <<
+                    "mov DX, 0" << endl <<
+                    j2 << ":" << endl <<
+                    "cmp BX, 0Dh" << endl <<
+                    "je " << j3 << endl <<
+                    "imul CX" << endl <<
+                    "add BX, -48" << endl <<
+                    "add AX, BX" << endl <<
+                    "add DI, 1" << endl <<
+                    "mov BH, 0" << endl <<
+                    "mov BL, DS:[DI]" << endl <<
+                    "jmp " << j2 << endl <<
+                    j3 << ":" << endl <<
+                    "pop CX" << endl <<
+                    "imul CX" << endl;
+
+            if(array){
+                fout << "mov SI, DS:[" << endE << "]" << endl <<
+                        "add SI, SI" << endl <<
+                        "add SI, " << endV << endl <<
+                        "mov DS:[SI], AX" << endl;
+            }else{
+                fout << "mov DS:[" << endV << "], AX" << endl;
+            }
+        }
+    }
+
 }
 
 //Expressoes
@@ -1288,16 +1681,23 @@ void procedimentoE(string *tipoE, int *tamanhoE, int *endE)
     procedimentoF(&tipoF1, &tamanhoF1, &endF1);
     *tipoE = tipoF1;
     *tamanhoE = tamanhoF1;
+    *endE = tamanhoF1;
 
     string tipoF2;
     int tamanhoF2;
     int endF2;
     if (tokenLido.token == "=" || tokenLido.token == "<>" || tokenLido.token == "<" || tokenLido.token == ">" || tokenLido.token == "<=" || tokenLido.token == ">=")
     {
+        string rotVerdadeiro;
+        rotVerdadeiro = novoRot();
         if (tokenLido.token == "=")
         {
             casaToken("=");
             procedimentoF(&tipoF2, &tamanhoF2, &endF2);
+            fout << "mov AX, DS:[" << *endE << "]" << endl <<
+                    "mov BX, DS:[" << endF2 << "]" << endl <<
+                    "mov AH, 0" << endl << 
+                    "mov BH, 0" << endl;
             if (*tipoE != tipoF2)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1319,11 +1719,87 @@ void procedimentoE(string *tipoE, int *tamanhoE, int *endE)
                     }
                 }
             }
+            if(*tipoE != "char" || *tamanhoE == 0){
+                fout << "cmp AX, BX" << endl;
+            }
+            else{ //comparando strings
+
+                string rotInicio = novoRot();
+                string rotCmd = novoRot();
+                string rotInc = novoRot();
+                string rotTrue = novoRot();
+                string rotFalse = novoRot();
+                string rotFim = novoRot();
+                string rotVerifica = novoRot();
+                string rotVerifica2 = novoRot();
+                string j1 = novoRot();
+                string j2 = novoRot();
+                string j3 = novoRot();
+                string j4 = novoRot();
+
+                fout << "mov DI, " << *endE << endl <<
+                        "mov SI, " << endF2 << endl <<
+                        "mov CX, " << (*endE+*tamanhoE) << endl <<
+                        "mov DX, " << (endF2+tamanhoF2) << endl <<
+                        rotInicio << ":" << endl <<
+                        "cmp DI, CX" << endl <<
+                        "jl " << j2 << endl <<
+                        "jmp " << rotVerifica <<
+                        j2 << ":" << endl <<
+                        "cmp SI, DX" << endl <<
+                        "jl " << j3 << endl <<
+                        "jmp " << rotVerifica << endl <<
+                        j3 << ":" << endl <<
+                        "mov BX, DS:[DI]" << endl <<
+                        "cmp BX, 024h" << endl <<
+                        "jne " << j4 << endl <<
+                        "jmp " << rotVerifica << endl <<
+                        j4 << ":" << endl <<
+                        "mov BX, DS:[SI]" << endl <<
+                        "cmp BX, 024h" << endl <<
+                        "jne " << rotCmd << endl <<
+                        "jmp " << rotVerifica << endl <<
+                        rotInc << ":" << endl <<
+                        "add DI, 1" << endl <<
+                        "add SI, 1" << endl <<
+                        "jmp " << rotInicio << endl <<
+                        rotCmd << ":" << endl <<
+                        "mov AX, DS:[DI]" << endl <<
+                        "mov BX, DS:[SI]" << endl <<
+                        "cmp AX, BX" << endl <<
+                        "jne " << rotFalse << endl <<
+                        "jmp " << rotInc << endl <<
+                        rotVerifica << ":" << endl <<
+                        "cmp DI, CX" << endl <<
+                        "je " << rotVerifica2 << endl <<
+                        "mov BX, DS:[DI]" << endl <<
+                        "cmp BX, 024h" << endl <<
+                        "jne " << rotFalse << endl <<
+                        rotVerifica2 << ":" << endl <<
+                        "cmp SI, DX" << endl <<
+                        "je " << rotTrue << endl <<
+                        "mov BX:DS[SI]" << endl <<
+                        "cmp BX, 024h" << endl <<
+                        "jne " << rotFalse << endl <<
+                        rotTrue << ":" << endl <<
+                        "mov AX, 1" << endl <<
+                        "jmp " << rotFim << endl <<
+                        rotFalse << ":" << endl <<
+                        "mov AX, 0" << endl <<
+                        rotFim << ":" << endl;
+            }
+            fout << "je " << rotVerdadeiro << endl;
+
         }
         else
         {
-            casaToken(tokenLido.token); //tem que ver isso aqui no futuro
+            casaToken(tokenLido.token);
             procedimentoF(&tipoF2, &tamanhoF2, &endF2);
+            fout << "mov AX, DS:[" << *endE << "]" << endl <<
+                    "mov BX, DS:[" << endF2 << "]" << endl <<
+                    "mov AH, 0" << endl << 
+                    "mov BH, 0" << endl;
+                    //TODO
             if (*tipoE != tipoF2)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
@@ -1332,9 +1808,43 @@ void procedimentoE(string *tipoE, int *tamanhoE, int *endE)
             {
                 mensagemErro(TIPOS_INCOMPATIVEIS, "");
             }
+            fout << "cmp AX, BX" << endl;
+            if(tokenLido.token == "<>"){
+                fout << "jne " << rotVerdadeiro << endl;
+            }
+            else{
+                if(tokenLido.token == "<"){
+                    fout << "jl " << rotVerdadeiro << endl;
+                }
+                else{
+                    if(tokenLido.token == ">"){
+                        fout << "jg " << rotVerdadeiro << endl;
+                    }
+                    else{
+                        if(tokenLido.token == ">="){
+                            fout << "jge " << rotVerdadeiro << endl;
+                        }
+                        else{ // <=
+                            fout << "jle " << rotVerdadeiro << endl;
+                        }
+                    }
+                }
+            }
+            
         }
+        string rotFim = novoRot();
+        fout << "mov AX, 0" << endl <<
+                "jmp " << rotFim << endl <<
+                rotVerdadeiro << ":" << endl <<
+                "mov AX, 1" << endl <<
+                rotFim << ":" << endl;
+
         *tipoE = "boolean";
         *tamanhoE = 0;
+        *endE = novoTemp(*tipoE, *tamanhoE);
+
+        fout << "mov DS:[" << *endE << "], AX" << endl; 
+
     }
 }
 
@@ -1526,12 +2036,12 @@ void procedimentoH(string *tipoH, int *tamanhoH, int *endH)
             casaToken("]");
             *tamanhoH = 0;
             *endH = novoTemp(*tipoH, *tamanhoH);
-            fout << "mov AX, DS:[" << endE1 << "]" << endl;
+            fout << "mov SI, DS:[" << endE1 << "]" << endl;
             if(*tipoH != "char"){
-                fout << "add AX, AX";
+                fout << "add SI, SI";
             }
-            fout << "add AX, " << enderecoID << endl <<
-                "mov BX, DS:[AX]" << endl <<
+            fout << "add SI, " << enderecoID << endl <<
+                "mov BX, DS:[SI]" << endl <<
                 "mov DS:[" << *endH << "], BX" << endl;
         }
         else
@@ -1552,7 +2062,7 @@ void procedimentoH(string *tipoH, int *tamanhoH, int *endH)
             *tamanhoH = tokenAnte.tamanho;
             if(*tipoH == "char" && *tamanhoH > 0){
                 fout << "dseg SEGMENT PUBLIC" << endl <<
-                    "byte " << tokenAnte.lexema.substr(0, tokenAnte.lexema.size()-2) << "$\"" << endl <<
+                    "byte " << tokenAnte.lexema.substr(0, tokenAnte.lexema.size()-1) << "$\"" << endl <<
                     "dseg ENDS" << endl;
                 *endH = proxEndereco;
                 proxEndereco += *tamanhoH + 1;

@@ -1,0 +1,15 @@
+char i;
+int a, b, c := -3;
+boolean d;
+char y[20];
+final z = 7;
+
+main{
+    y := "ola";
+    i := 'a';
+    a := 30;
+
+    for(b:=0; b<10; b := b+1){
+        c := c + 4;
+    }
+}

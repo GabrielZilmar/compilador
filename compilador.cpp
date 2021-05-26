@@ -2038,7 +2038,7 @@ void procedimentoH(string *tipoH, int *tamanhoH, int *endH)
             *endH = novoTemp(*tipoH, *tamanhoH);
             fout << "mov SI, DS:[" << endE1 << "]" << endl;
             if(*tipoH != "char"){
-                fout << "add SI, SI";
+                fout << "add SI, SI" << endl;
             }
             fout << "add SI, " << enderecoID << endl <<
                 "mov BX, DS:[SI]" << endl <<
